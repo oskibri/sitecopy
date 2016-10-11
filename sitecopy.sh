@@ -1,7 +1,10 @@
 #!/bin/bash
 
 usage() {
-  echo "usage: $0 [ options ] user@hostname [dbname]"
+  echo "usage: $0 [OPTIONS] user@hostname remote-db local-db"
+  echo "Options"
+  echo "  -u, --user[=name]   run this script under another account."
+  echo "  -h, --help          display this help and exit."
 }
 
 abspath() {
@@ -27,9 +30,8 @@ dbimport() {
 AP=`abspath $0`
 SCRIPT="$AP/$(basename $0)"
 USER=`whoami`
-FORCE=0
 
-if ! options=$(getopt -o fhu: -l user:,force -- "$@")
+if ! options=$(getopt -o hu: -l help,user: -- "$@")
 then
     # something went wrong, getopt will put out an error message for us
     exit 1
@@ -39,8 +41,7 @@ eval set -- $options
 
 until [ -z "$1" ] ; do
   case $1 in
-    -h) usage ; exit 1 ;;
-    -f|--force) FORCE=1 ;;
+    -h|--help) usage ; exit 1 ;;
     -u|--user) USER=$2 ; shift ;;
     --) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
