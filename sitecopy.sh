@@ -1,7 +1,11 @@
 #!/bin/bash
 
-SCRIPT="$(pwd)/$(dirname $0)/$(basename $0)"
-CMD="$SCRIPT $*"
+abspath() {
+  echo $(cd "$(dirname $1)" ;pwd -P)
+}
+
+AP=`abspath $0`
+SCRIPT="$AP/$(basename $0)"
 USER=""
 WHOAMI=`whoami`
 FORCE=0
@@ -21,6 +25,7 @@ shift $((OPTIND-1))
 SOURCE=$1
 
 if [ ! "$USER" = "`whoami`" ] ; then
+  CMD="$SCRIPT $*"
   sudo su $USER -c "echo $CMD"
 else
   cd $HOME
