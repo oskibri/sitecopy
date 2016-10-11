@@ -1,11 +1,18 @@
 #!/bin/bash
 
 usage() {
-  echo "usage: $0 [ options ] user@hostname"
+  echo "usage: $0 [ options ] user@hostname [dbname]"
 }
 
 abspath() {
   echo $(cd "$(dirname $1)" ;pwd -P)
+}
+
+dbcopy() {
+  SRCDBNAME=$1
+  SRCDBUSER=$2
+  SRCDBPASS=$3
+  ssh $SOURCE "mysqldump --password=\"$SRCDBPASS\" -u $SRCDBUSER $SRCDBNAME" > $SRCDBNAME.sql
 }
 
 AP=`abspath $0`
@@ -13,7 +20,7 @@ SCRIPT="$AP/$(basename $0)"
 USER=`whoami`
 FORCE=0
 
-if ! options=$(getopt -o fhu: -l user:,force -- "$@")
+if ! options=$(getopt -o fhd:p:u: -l db:,pass:,user:,force -- "$@")
 then
     # something went wrong, getopt will put out an error message for us
     exit 1
@@ -25,6 +32,7 @@ until [ -z "$1" ] ; do
   case $1 in
     -h) usage ; exit 1 ;;
     -f|--force) FORCE=1 ;;
+    -d|--db) DBNAME=$2 ; shift ;;
     -u|--user) USER=$2 ; shift ;;
     --) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -34,8 +42,17 @@ until [ -z "$1" ] ; do
 done
 
 SOURCE=$1
+DBNAME=$2
 
-if [ -z "$SOURCE"] ; then
+if [ ! -z "$DBNAME" ] ; then
+  SRCDBNAME=$DBNAME
+  SRCDBUSER=$DBNAME
+fi
+echo -n "MySQL Password:"
+read -s SRCDBPASS
+echo
+
+if [ -z "$SOURCE" ] ; then
 usage
 exit
 fi
@@ -62,6 +79,9 @@ else
 
   echo "copying public folder from $SOURCE"
   rsync --delete -rauve ssh $SOURCE:public .
-fi
 
-## begin copy database
+  ## begin copy database
+  echo "copying database $SRCDBUSER/$SRCDBNAME from $SOURCE"
+  dbcopy $SRCDBNAME $SRCDBUSER $SRCDBPASS
+  cat $SRCDBNAME.sql
+fi
