@@ -8,11 +8,20 @@ abspath() {
   echo $(cd "$(dirname $1)" ;pwd -P)
 }
 
-dbcopy() {
-  SRCDBNAME=$1
-  SRCDBUSER=$2
-  SRCDBPASS=$3
-  ssh $SOURCE "mysqldump --password=\"$SRCDBPASS\" -u $SRCDBUSER $SRCDBNAME" > $SRCDBNAME.sql
+dbexport() {
+  DBNAME=$1
+  DBUSER=$2
+  DBPASS=$3
+  SOURCE=$4
+  ssh $SOURCE "mysqldump --password=\"$DBPASS\" -u $DBUSER $DBNAME" > $DBNAME.sql
+}
+
+dbimport() {
+  DBNAME=$1
+  DBUSER=$2
+  DBPASS=$3
+  DUMP=$4
+  mysql -u$DBUSER --password="$DBPASS" $DBNAME < $DUMP
 }
 
 AP=`abspath $0`
@@ -40,49 +49,67 @@ until [ -z "$1" ] ; do
   shift
 done
 
+if [ ! "$USER" = "`whoami`" ] ; then
+  echo "running $0 as $USER"
+  CMD="$SCRIPT $*"
+  su $USER -c "echo $CMD"
+  exit
+fi
+
 SOURCE=$1
-DBNAME=$2
+SRCDB=$2
+DSTDB=$3
 
 if [ -z "$SOURCE" ] ; then
   usage
   exit
 fi
 
-if [ ! -z "$DBNAME" ] ; then
-  SRCDBNAME=$DBNAME
-  SRCDBUSER=$DBNAME
-  echo -n "MySQL Password:"
+if [ ! -z "$SRCDB" ] ; then
+  SRCDBNAME=$SRCDB
+  SRCDBUSER=$SRCDB
+  echo -n "MySQL Password for $SRCDBNAME:"
   read -s SRCDBPASS
   echo
 fi
 
+if [ ! -z "$DSTDB" ] ; then
+  DSTDBNAME=$DSTDB
+  DSTDBUSER=$DSTDB
+  echo -n "MySQL Password for $DSTDBNAME:"
+  read -s DSTDBPASS
+  echo
+fi
+
 ## begin rsync public folder
-if [ ! "$USER" = "`whoami`" ] ; then
-  CMD="$SCRIPT $*"
-  su $USER -c "echo $CMD"
-else
-  cd $HOME
-  echo "copy site from $SOURCE to $PWD"
-  if [ ! -e ~/.ssh/id_sitecopy ] ; then
-    echo "generating new public/private key pair"
-    ssh-keygen -N "" -f ~/.ssh/id_sitecopy
-  fi
-  echo "adding public key to authorized_keys"
-  ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
 
-  if [ -z "$SSH_AGENT_PID" ]; then
-    echo "starting local ssh-agent"
-    eval `ssh-agent -s`
-  fi
-  ssh-add ~/.ssh/id_sitecopy
+cd $HOME
+echo "copy site from $SOURCE to $PWD"
+if [ ! -e ~/.ssh/id_sitecopy ] ; then
+  echo "generating new public/private key pair"
+  ssh-keygen -N "" -f ~/.ssh/id_sitecopy
+fi
+echo "adding public key to authorized_keys"
+ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
 
-  echo "copying public folder from $SOURCE"
-  rsync --delete -rauve ssh $SOURCE:public .
+if [ -z "$SSH_AGENT_PID" ]; then
+  echo "starting local ssh-agent"
+  eval `ssh-agent -s`
+fi
+ssh-add ~/.ssh/id_sitecopy
 
-  ## begin copy database
-  if [ ! -z "$SRCDBNAME" ] ; then
-    echo "copying database $SRCDBUSER/$SRCDBNAME from $SOURCE"
-    dbcopy $SRCDBNAME $SRCDBUSER $SRCDBPASS
-    cat $SRCDBNAME.sql
+echo "copying public folder from $SOURCE"
+rsync --delete -rauve ssh $SOURCE:public .
+
+## begin copy database
+if [ ! -z "$SRCDBNAME" ] ; then
+  echo "exporting database $SRCDBUSER/$SRCDBNAME to $SRCDBNAME.sql"
+  dbexport $SRCDBNAME $SRCDBUSER $SRCDBPASS $SOURCE
+fi
+if [ ! -z "$DSTDBNAME" ] ; then
+  echo "importing database $DSTDBUSER/$DSTDBNAME from $SRCDBNAME.sql"
+  if [ -e $SRCDBNAME.sql ] ; then
+    dbimport $DSTDBNAME $DSTDBUSER $DSTDBPASS $SRCDBNAME.sql
+    rm -f $SRCDBNAME.sql
   fi
 fi
