@@ -20,7 +20,7 @@ SCRIPT="$AP/$(basename $0)"
 USER=`whoami`
 FORCE=0
 
-if ! options=$(getopt -o fhd:p:u: -l db:,pass:,user:,force -- "$@")
+if ! options=$(getopt -o fhu: -l user:,force -- "$@")
 then
     # something went wrong, getopt will put out an error message for us
     exit 1
@@ -32,7 +32,6 @@ until [ -z "$1" ] ; do
   case $1 in
     -h) usage ; exit 1 ;;
     -f|--force) FORCE=1 ;;
-    -d|--db) DBNAME=$2 ; shift ;;
     -u|--user) USER=$2 ; shift ;;
     --) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
@@ -44,17 +43,17 @@ done
 SOURCE=$1
 DBNAME=$2
 
+if [ -z "$SOURCE" ] ; then
+  usage
+  exit
+fi
+
 if [ ! -z "$DBNAME" ] ; then
   SRCDBNAME=$DBNAME
   SRCDBUSER=$DBNAME
-fi
-echo -n "MySQL Password:"
-read -s SRCDBPASS
-echo
-
-if [ -z "$SOURCE" ] ; then
-usage
-exit
+  echo -n "MySQL Password:"
+  read -s SRCDBPASS
+  echo
 fi
 
 ## begin rsync public folder
@@ -81,7 +80,9 @@ else
   rsync --delete -rauve ssh $SOURCE:public .
 
   ## begin copy database
-  echo "copying database $SRCDBUSER/$SRCDBNAME from $SOURCE"
-  dbcopy $SRCDBNAME $SRCDBUSER $SRCDBPASS
-  cat $SRCDBNAME.sql
+  if [ ! -z "$SRCDBNAME" ] ; then
+    echo "copying database $SRCDBUSER/$SRCDBNAME from $SOURCE"
+    dbcopy $SRCDBNAME $SRCDBUSER $SRCDBPASS
+    cat $SRCDBNAME.sql
+  fi
 fi
