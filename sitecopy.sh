@@ -51,14 +51,15 @@ else
     echo "generating new public/private key pair"
     ssh-keygen -N "" -f ~/.ssh/id_sitecopy
   fi
+  echo "adding public key to authorized_keys"
+  ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
 
   if [ -z "$SSH_AGENT_PID" ]; then
+    echo "starting local ssh-agent"
     eval `ssh-agent -s`
   fi
   ssh-add ~/.ssh/id_sitecopy
 
-  echo "adding public key to authorized_keys"
-  ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
   echo "copying public folder from $SOURCE"
   rsync --delete -rauve ssh $SOURCE:public .
 fi
