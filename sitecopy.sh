@@ -94,7 +94,7 @@ echo "copying public folder from $SOURCE"
 rsync --delete -rauve ssh $SOURCE:public .
 
 
-wp_config() {
+wp_read_config() {
   ( echo "<?php" ; grep DB_ $1 ; cat <<EOF
 echo 'SRCDBPASS="' . DB_PASSWORD . '"' . PHP_EOL;
 echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
@@ -108,7 +108,7 @@ if [ "$SITE" = "wp" ] ; then
   wpconfig="public/wp-config.php"
   if [ -e $wpconfig ] ; then
     echo "reading credential from $wpconfig"
-    eval `wp_config $wpconfig`
+    eval `wp_read_config $wpconfig`
     echo "name: $SRCDBNAME"
     echo "user: $SRCDBUSER"
   else
@@ -127,11 +127,13 @@ if [ ! -z "$SRCDB" ] ; then
 fi
 
 if [ ! -z "$DSTDB" ] ; then
-  DSTDBNAME=$DSTDB
-  DSTDBUSER=$DSTDB
-  echo -n "MySQL Password for $DSTDBNAME:"
-  read -s DSTDBPASS
-  echo
+  [ -z "$DSTDBNAME" ] && DSTDBNAME=$DSTDB
+  [ -z "$DSTDBUSER" ] && DSTDBUSER=$DSTDB
+  if [ -z "$DSTDBPASS" ] ; then
+    echo -n "MySQL Password for $DSTDBNAME:"
+    read -s DSTDBPASS
+    echo
+  fi
 fi
 
 ## begin copy database
@@ -142,7 +144,6 @@ fi
 if [ ! -z "$DSTDBNAME" ] ; then
   echo "importing database $DSTDBUSER/$DSTDBNAME from $SRCDBNAME.sql"
   if [ -e $SRCDBNAME.sql ] ; then
-    dbimport $DSTDBNAME $DSTDBUSER $DSTDBPASS $SRCDBNAME.sql
-    rm -f $SRCDBNAME.sql
+    dbimport $DSTDBNAME $DSTDBUSER $DSTDBPASS $SRCDBNAME.sql && rm -f $SRCDBNAME.sql
   fi
 fi
