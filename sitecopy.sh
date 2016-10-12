@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-  echo "usage: $0 [OPTIONS] user@hostname remote-db local-db"
+  echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
   echo "  -u, --user[=name]   run this script under another account."
   echo "  -t, --type[=name]   website type {i.e. wp}."
@@ -66,8 +66,8 @@ if [ ! "$USER" = "`whoami`" ] ; then
 fi
 
 SOURCE=$1
-SRCDB=$2
-DSTDB=$3
+DSTDB=$2
+SRCDB=$3
 
 if [ -z "$SOURCE" ] ; then
   usage
@@ -107,7 +107,10 @@ EOF
 if [ "$SITE" = "wp" ] ; then
   wpconfig="public/wp-config.php"
   if [ -e $wpconfig ] ; then
+    echo "reading credential from $wpconfig"
     eval `wp_config $wpconfig`
+    echo "name: $SRCDBNAME"
+    echo "user: $SRCDBUSER"
   else
     echo "no such file: $wpconfig"
   fi
