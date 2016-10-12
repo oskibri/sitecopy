@@ -109,7 +109,7 @@ EOF
 }
 
 wp_write_config() {
-
+  echo "modifying wp-config.php"
 }
 
 ## find database credentials
@@ -129,7 +129,7 @@ if [ ! -z "$SRCDB" ] ; then
   [ -z "$SRCDBNAME" ] && SRCDBNAME=$SRCDB
   [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
 fi
-if [ -z "$SRCDBPASS" ] ; then
+if [ -z "$SRCDBPASS" ] && [ ! -z "$SRCDBNAME" ]; then
   echo -n "MySQL Password for $SRCDBNAME:"
   read -s SRCDBPASS
   echo
@@ -139,7 +139,7 @@ if [ ! -z "$DSTDB" ] ; then
   [ -z "$DSTDBNAME" ] && DSTDBNAME=$DSTDB
   [ -z "$DSTDBUSER" ] && DSTDBUSER=$DSTDB
 fi
-if [ -z "$DSTDBPASS" ] ; then
+if [ -z "$DSTDBPASS" ] && [ ! -z "$DSTDBNAME" ] ; then
   echo -n "MySQL Password for $DSTDBNAME:"
   read -s DSTDBPASS
   echo
