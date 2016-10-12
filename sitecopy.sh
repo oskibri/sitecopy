@@ -58,6 +58,11 @@ until [ -z "$1" ] ; do
   shift
 done
 
+if [ "$USER" = "root" ] ; then
+  echo "cannot run as root. did you forget to add -u?"
+  exit 1
+fi
+
 if [ ! "$USER" = "`whoami`" ] ; then
   echo "running $0 as $USER"
   CMD="$SCRIPT $*"
@@ -101,6 +106,10 @@ echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
 echo 'SRCDBNAME="' . DB_NAME . '"' . PHP_EOL;
 EOF
 ) | php
+}
+
+wp_write_config() {
+
 }
 
 ## find database credentials
