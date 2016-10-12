@@ -119,21 +119,21 @@ fi
 if [ ! -z "$SRCDB" ] ; then
   [ -z "$SRCDBNAME" ] && SRCDBNAME=$SRCDB
   [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
-  if [ -z "$SRCDBPASS" ] ; then
-    echo -n "MySQL Password for $SRCDBNAME:"
-    read -s SRCDBPASS
-    echo
-  fi
+fi
+if [ -z "$SRCDBPASS" ] ; then
+  echo -n "MySQL Password for $SRCDBNAME:"
+  read -s SRCDBPASS
+  echo
 fi
 
 if [ ! -z "$DSTDB" ] ; then
   [ -z "$DSTDBNAME" ] && DSTDBNAME=$DSTDB
   [ -z "$DSTDBUSER" ] && DSTDBUSER=$DSTDB
-  if [ -z "$DSTDBPASS" ] ; then
-    echo -n "MySQL Password for $DSTDBNAME:"
-    read -s DSTDBPASS
-    echo
-  fi
+fi
+if [ -z "$DSTDBPASS" ] ; then
+  echo -n "MySQL Password for $DSTDBNAME:"
+  read -s DSTDBPASS
+  echo
 fi
 
 ## begin copy database
