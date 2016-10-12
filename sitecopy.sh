@@ -4,6 +4,7 @@ usage() {
   echo "usage: $0 [OPTIONS] user@hostname remote-db local-db"
   echo "Options"
   echo "  -u, --user[=name]   run this script under another account."
+  echo "  -t, --type[=name]   website type {i.e. wp}."
   echo "  -h, --help          display this help and exit."
 }
 
@@ -30,11 +31,17 @@ dbimport() {
 AP=`abspath $0`
 SCRIPT="$AP/$(basename $0)"
 USER=`whoami`
+SITE=""
 
-if ! options=$(getopt -o hu: -l help,user: -- "$@")
-then
-    # something went wrong, getopt will put out an error message for us
-    exit 1
+if [ -d /Applications ] ; then # OS X
+  options=$(getopt hu:t: "$@")
+else # GNU getopt
+  options=$(getopt -o hu:t: -l help,user: -- "$@")
+fi
+
+if [ -z "$options" ] ; then
+  # something went wrong, getopt will put out an error message for us
+  exit 1
 fi
 
 eval set -- $options
@@ -43,6 +50,7 @@ until [ -z "$1" ] ; do
   case $1 in
     -h|--help) usage ; exit 1 ;;
     -u|--user) USER=$2 ; shift ;;
+    -t|--type) SITE=$2 ; shift ;;
     --) shift; break;;
     (-*) echo "$0: error - unrecognized option $1" 1>&2; exit 1;;
     (*) break;;
@@ -66,25 +74,8 @@ if [ -z "$SOURCE" ] ; then
   exit
 fi
 
-if [ ! -z "$SRCDB" ] ; then
-  SRCDBNAME=$SRCDB
-  SRCDBUSER=$SRCDB
-  echo -n "MySQL Password for $SRCDBNAME:"
-  read -s SRCDBPASS
-  echo
-fi
-
-if [ ! -z "$DSTDB" ] ; then
-  DSTDBNAME=$DSTDB
-  DSTDBUSER=$DSTDB
-  echo -n "MySQL Password for $DSTDBNAME:"
-  read -s DSTDBPASS
-  echo
-fi
-
-## begin rsync public folder
-
 cd $HOME
+## begin rsync public folder
 echo "copy site from $SOURCE to $PWD"
 if [ ! -e ~/.ssh/id_sitecopy ] ; then
   echo "generating new public/private key pair"
@@ -101,6 +92,44 @@ ssh-add ~/.ssh/id_sitecopy
 
 echo "copying public folder from $SOURCE"
 rsync --delete -rauve ssh $SOURCE:public .
+
+
+wp_config() {
+  ( echo "<?php" ; grep DB_ $1 ; cat <<EOF
+echo 'SRCDBPASS="' . DB_PASSWORD . '"' . PHP_EOL;
+echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
+echo 'SRCDBNAME="' . DB_NAME . '"' . PHP_EOL;
+EOF
+) | php
+}
+
+## find database credentials
+if [ "$SITE" = "wp" ] ; then
+  wpconfig="public/wp-config.php"
+  if [ -e $wpconfig ] ; then
+    eval `wp_config $wpconfig`
+  else
+    echo "no such file: $wpconfig"
+  fi
+fi
+
+if [ ! -z "$SRCDB" ] ; then
+  [ -z "$SRCDBNAME" ] && SRCDBNAME=$SRCDB
+  [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
+  if [ -z "$SRCDBPASS" ] ; then
+    echo -n "MySQL Password for $SRCDBNAME:"
+    read -s SRCDBPASS
+    echo
+  fi
+fi
+
+if [ ! -z "$DSTDB" ] ; then
+  DSTDBNAME=$DSTDB
+  DSTDBUSER=$DSTDB
+  echo -n "MySQL Password for $DSTDBNAME:"
+  read -s DSTDBPASS
+  echo
+fi
 
 ## begin copy database
 if [ ! -z "$SRCDBNAME" ] ; then
