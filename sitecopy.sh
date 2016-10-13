@@ -216,7 +216,7 @@ if [ ! -z "$SRCDBNAME" ] ; then
 fi
 if [ ! -z "$DSTDBNAME" ] ; then
   echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlfile"
-  if [ -e $SRCDBNAME.sql ] ; then
+  if [ -e $sqlfile ] ; then
     mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME < $sqlfile
   fi
 fi
