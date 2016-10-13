@@ -174,20 +174,20 @@ mv $mgconfig $mgconfig.orig
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <xsl:output method="xml" indent="yes"
-cdata-section-elements="date key table_prefix session_save password dbname username host frontName"/>
+cdata-section-elements="date key table_prefix session_save password dbname username host frontName model type pdoType initStatements"/>
 <xsl:template match="@*|node()">
 <xsl:copy>
 <xsl:apply-templates select="@*|node()"/>
 </xsl:copy>
 </xsl:template>
-<xsl:template match="connection">
-<connection>
-<host><![CDATA[localhost]]></host>
+<xsl:template match="username">
 <username><![CDATA[$DSTDBUSER]]></username>
+</xsl:template>
+<xsl:template match="password">
 <password><![CDATA[$DSTDBPASS]]></password>
+</xsl:template>
+<xsl:template match="dbname">
 <dbname><![CDATA[$DSTDBNAME]]></dbname>
-<active>1</active>
-</connection>
 </xsl:template>
 </xsl:stylesheet>
 XSL
@@ -224,7 +224,7 @@ fi
 
 cleanup() {
   cd $HOME
-#  rm -f sitecopy.sql $wpconfig.orig rules.awk mg-read.xsl mg-write.xsl
+  rm -f sitecopy.sql $wpconfig.orig $mgconfig.orig rules.awk mg-read.xsl mg-write.xsl
 }
 
 cd $HOME
