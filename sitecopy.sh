@@ -1,7 +1,7 @@
 #!/bin/bash
 
 wpconfig="public/wp-config.php"
-
+mgconfig="public/app/etc/local.xml"
 usage() {
   echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
@@ -65,6 +65,24 @@ if [ -z "$SOURCE" ] ; then
   exit
 fi
 
+mg_read_config() {
+( cat <<XSL
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:strip-space elements="*" />
+<xsl:output method="text"/>
+<xsl:template match="connection">
+SRCDBHOST="<xsl:copy-of select="host/text()"/>"
+SRCDBUSER="<xsl:copy-of select="username/text()"/>"
+SRCDBPASS="<xsl:copy-of select="password/text()"/>"
+SRCDBNAME="<xsl:copy-of select="dbname/text()"/>"
+</xsl:template>
+<xsl:template match="text()"/>
+</xsl:stylesheet>
+XSL
+) > mg-read.xsl
+xsltproc mg-read.xsl $1
+}
 
 wp_read_config() {
   ( echo "<?php" ; grep DB_ $1 ; cat <<EOF
@@ -73,6 +91,18 @@ echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
 echo 'SRCDBNAME="' . DB_NAME . '"' . PHP_EOL;
 EOF
 ) | php
+}
+
+config_read() {
+  mkdir -p ~/public
+  if [ "$SITE" = "wp" ] ; then
+    scp $SOURCE:$wpconfig ~/$(dirname $wpconfig)
+    eval `wp_read_config $wpconfig`
+  elif [ "$SITE" = "mg" ] ; then
+    scp $SOURCE:$mgconfig ~/$(dirname $mgconfig)
+    eval `mg_read_config $mgconfig`
+    echo "remote database is $SRCDBNAME"
+  fi
 }
 
 setup_ssh() {
@@ -88,14 +118,6 @@ setup_ssh() {
     eval `ssh-agent -s`
   fi
   ssh-add ~/.ssh/id_sitecopy
-}
-
-config_read() {
-  mkdir -p ~/public
-  if [ "$SITE" = "wp" ] ; then
-    scp $SOURCE:$wpconfig ~/public/
-    eval `wp_read_config $wpconfig`
-  fi
 }
 
 dbconf_local() {
@@ -115,7 +137,6 @@ dbconf_local() {
     echo
   fi
 }
-
 
 dbconf_remote() {
   ## guess/ask local db credentials
@@ -173,7 +194,8 @@ fi
 }
 
 cleanup() {
-  rm -f sitecopy.sql $wpconfig.orig rules.awk
+  cd $HOME
+#  rm -f sitecopy.sql $wpconfig.orig rules.awk mg-read.xsl mg-write.xsl
 }
 
 cd $HOME
