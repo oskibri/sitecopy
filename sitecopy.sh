@@ -205,7 +205,7 @@ fi
 
 rsync_public () {
   echo "copying public folder from $SOURCE"
-  rsync --delete -rave ssh $SOURCE:public .
+  rsync --exclude var/cache --delete -rave ssh $SOURCE:public .
 }
 
 db_transfer(){
