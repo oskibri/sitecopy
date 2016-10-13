@@ -168,9 +168,37 @@ AWK
 awk -f rules.awk < $wpconfig.orig > $wpconfig
 }
 
+config_write_mg() {
+mv $mgconfig $mgconfig.orig
+( cat <<XSL
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:output method="xml" indent="yes"/>
+<xsl:template match="@*|node()">
+<xsl:copy>
+<xsl:apply-templates select="@*|node()"/>
+</xsl:copy>
+</xsl:template>
+<xsl:template match="connection">
+<connection>
+<host><![CDATA[localhost]]></host>
+<username><![CDATA[$DSTDBUSER]]></username>
+<password><![CDATA[$DSTDBPASS]]></password>
+<dbname><![CDATA[$DSTDBNAME]]></dbname>
+<active>1</active>
+</connection>
+</xsl:template>
+</xsl:stylesheet>
+XSL
+) > mg-write.xsl
+xsltproc mg-write.xsl $mgconfig.orig |xmllint --format - > $mgconfig
+}
+
 config_write() {
 if [ "$SITE" = "wp" ] ; then
-  config_write_wp $wpconfig
+  config_write_wp
+elif [ "$SITE" = "mg" ] ; then
+  config_write_mg
 fi
 }
 
