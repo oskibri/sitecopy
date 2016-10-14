@@ -159,10 +159,10 @@ dbconf_remote() {
 config_write_wp() {
 mv $wpconfig $wpconfig.orig
 ( cat <<AWK
-\$0 ~ "DB_PASSWORD" { sub("$SRCDBPASS","$DSTDBPASS") }
+\$0 ~ "DB_PASSWORD" { print substr(\$0, 1, index(\$0, "$SRCDBPASS")-1) "$DSTDBPASS" substr(\$0, length("$SRCDBPASS")+index(\$0, "$SRCDBPASS")) }
 \$0 ~ "DB_USER" { sub("$SRCDBUSER","$DSTDBUSER") }
 \$0 ~ "DB_NAME" { sub("$SRCDBNAME","$DSTDBNAME") }
-{ print }
+\$0 !~ "DB_PASSWORD" { print }
 AWK
 ) > rules.awk
 awk -f rules.awk < $wpconfig.orig > $wpconfig
@@ -224,7 +224,7 @@ fi
 
 cleanup() {
   cd $HOME
-  rm -f sitecopy.sql $wpconfig.orig $mgconfig.orig rules.awk mg-read.xsl mg-write.xsl
+  rm -f sitecopy.sql $wpconfig.orig $mgconfig.orig rules.awk mg-read.xsl mg-write.xsl .ssh/id_sitecopy*
 }
 
 cd $HOME
