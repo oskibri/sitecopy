@@ -1,10 +1,12 @@
 #!/bin/bash
 
+srcdir="public"
 wpconfig="public/wp-config.php"
 mgconfig="public/app/etc/local.xml"
 usage() {
   echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
+  echo "  -d, --dir[=path]    source directory (default: public)"
   echo "  -u, --user[=name]   run this script under another account."
   echo "  -t, --type[=name]   website type {i.e. wp}."
   echo "  -h, --help          display this help and exit."
@@ -20,9 +22,9 @@ USER=`whoami`
 SITE=""
 
 if [ -d /Applications ] ; then # OS X
-  options=$(getopt hu:t: "$@")
+  options=$(getopt hu:t:d: "$@")
 else # GNU getopt
-  options=$(getopt -o hu:t: -l help,user: -- "$@")
+  options=$(getopt -o hu:t:d: -l help,user:,dir: -- "$@")
 fi
 
 if [ -z "$options" ] ; then
@@ -35,6 +37,7 @@ eval set -- $options
 until [ -z "$1" ] ; do
   case $1 in
     -h|--help) usage ; exit 1 ;;
+    -d|--dir) srcdir=$2 ; shift ;;
     -u|--user) USER=$2 ; shift ;;
     -t|--type) SITE=$2 ; shift ;;
     --) shift; break;;
@@ -204,11 +207,11 @@ fi
 }
 
 rsync_public () {
-  echo "copying public folder from $SOURCE"
-  rsync --exclude var/cache --delete -rave ssh $SOURCE:public .
+  echo "copying public folder from $SOURCE:$srcdir"
+  rsync --exclude var/cache --delete -rave ssh $SOURCE:$srcdir/ public
 }
 
-db_transfer(){
+db_transfer() {
 sqlfile=$1
 if [ ! -z "$SRCDBNAME" ] ; then
   echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlfile"
