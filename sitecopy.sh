@@ -1,8 +1,9 @@
 #!/bin/bash
 
 srcdir="public"
-wpconfig="public/wp-config.php"
-mgconfig="public/app/etc/local.xml"
+wpconfig="wp-config.php"
+mgconfig="app/etc/local.xml"
+
 usage() {
   echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
@@ -99,11 +100,11 @@ EOF
 config_read() {
   mkdir -p ~/public
   if [ "$SITE" = "wp" ] ; then
-    scp $SOURCE:$wpconfig ~/$(dirname $wpconfig)
-    eval `wp_read_config $wpconfig`
+    scp $SOURCE:$srcdir/$wpconfig ~/public/$(dirname $wpconfig)
+    eval `wp_read_config public/$wpconfig`
   elif [ "$SITE" = "mg" ] ; then
-    scp $SOURCE:$mgconfig ~/$(dirname $mgconfig)
-    eval `mg_read_config $mgconfig`
+    scp $SOURCE:$srcdir/$mgconfig ~/public/$(dirname $mgconfig)
+    eval `mg_read_config public/$mgconfig`
     echo "remote database is $SRCDBNAME"
   fi
 }
@@ -160,7 +161,7 @@ dbconf_remote() {
 }
 
 config_write_wp() {
-mv $wpconfig $wpconfig.orig
+mv public/$wpconfig public/$wpconfig.orig
 ( cat <<AWK
 \$0 ~ "DB_PASSWORD" { print substr(\$0, 1, index(\$0, "$SRCDBPASS")-1) "$DSTDBPASS" substr(\$0, length("$SRCDBPASS")+index(\$0, "$SRCDBPASS")) }
 \$0 ~ "DB_USER" { sub("$SRCDBUSER","$DSTDBUSER") }
@@ -168,11 +169,11 @@ mv $wpconfig $wpconfig.orig
 \$0 !~ "DB_PASSWORD" { print }
 AWK
 ) > rules.awk
-awk -f rules.awk < $wpconfig.orig > $wpconfig
+awk -f rules.awk < public/$wpconfig.orig > public/$wpconfig
 }
 
 config_write_mg() {
-mv $mgconfig $mgconfig.orig
+mv public/$mgconfig public/$mgconfig.orig
 ( cat <<XSL
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
@@ -195,7 +196,7 @@ cdata-section-elements="date key table_prefix session_save password dbname usern
 </xsl:stylesheet>
 XSL
 ) > mg-write.xsl
-xsltproc mg-write.xsl $mgconfig.orig |xmllint --format - > $mgconfig
+xsltproc mg-write.xsl public/$mgconfig.orig |xmllint --format - > public/$mgconfig
 }
 
 config_write() {
@@ -227,7 +228,7 @@ fi
 
 cleanup() {
   cd $HOME
-  rm -f sitecopy.sql $wpconfig.orig $mgconfig.orig rules.awk mg-read.xsl mg-write.xsl .ssh/id_sitecopy*
+  rm -f sitecopy.sql public/$wpconfig.orig public/$mgconfig.orig rules.awk mg-read.xsl mg-write.xsl .ssh/id_sitecopy*
 }
 
 cd $HOME
