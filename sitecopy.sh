@@ -1,15 +1,17 @@
 #!/bin/bash
 
-srcdir="public"
 wpconfig="wp-config.php"
 mgconfig="app/etc/local.xml"
+srcdir="public"
+pause=0
 
 usage() {
   echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
   echo "  -d, --dir[=path]    source directory (default: public)"
   echo "  -u, --user[=name]   run this script under another account."
-  echo "  -t, --type[=name]   website type {i.e. wp}."
+  echo "  -t, --type[=name]   website type (wp=Wordpress, mg=Magento)."
+  echo "  -p, --pause         wait for keypress before database transfer."
   echo "  -h, --help          display this help and exit."
 }
 
@@ -23,9 +25,9 @@ USER=`whoami`
 SITE=""
 
 if [ -d /Applications ] ; then # OS X
-  options=$(getopt hu:t:d: "$@")
+  options=$(getopt phu:t:d: "$@")
 else # GNU getopt
-  options=$(getopt -o hu:t:d: -l help,user:,dir: -- "$@")
+  options=$(getopt -o phu:t:d: -l pause,help,user:,dir: -- "$@")
 fi
 
 if [ -z "$options" ] ; then
@@ -38,6 +40,7 @@ eval set -- $options
 until [ -z "$1" ] ; do
   case $1 in
     -h|--help) usage ; exit 1 ;;
+    -p|--pause) pause=1 ;;
     -d|--dir) srcdir=$2 ; shift ;;
     -u|--user) USER=$2 ; shift ;;
     -t|--type) SITE=$2 ; shift ;;
@@ -215,6 +218,10 @@ rsync_public () {
 db_transfer() {
 sqlfile=$1
 if [ ! -z "$SRCDBNAME" ] ; then
+  if [ $pause -eq 1 ] ; then
+    read -s -n 1 -p "press any key to start databse transfer."
+    echo
+  fi
   echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlfile"
   ssh $SOURCE "mysqldump --password=\"$SRCDBPASS\" -u $SRCDBUSER $SRCDBNAME" > $sqlfile
 fi
