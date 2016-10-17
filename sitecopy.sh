@@ -221,7 +221,8 @@ fi
 if [ ! -z "$DSTDBNAME" ] ; then
   echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlfile"
   if [ -e $sqlfile ] ; then
-    mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME < $sqlfile
+    sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' $sqlfile | \
+      mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME
   fi
 fi
 }
