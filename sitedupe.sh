@@ -1,5 +1,6 @@
 #!/bin/bash
 
+dbsettings="$(pwd)/settings.php"
 wpconfig="wp-config.php"
 mgconfig="app/etc/local.xml"
 srcdir="public"
@@ -8,9 +9,10 @@ pause=0
 usage() {
   echo "usage: $0 [OPTIONS] user1@origin user2@target"
   echo "Options"
-  echo "  -d, --dir[=path]    source directory (default: public)"
-  echo "  -t, --type[=name]   website type (wp=Wordpress, mg=Magento)."
-  echo "  -h, --help          display this help and exit."
+  echo "  -d, --dir[=path]      source directory (default: public)"
+  echo "  -t, --type[=name]     website type (wp=Wordpress, mg=Magento)."
+  echo "  -s, --settings[=name] location of settings.php database configuration."
+  echo "  -h, --help            display this help and exit."
 }
 
 abspath() {
@@ -22,9 +24,9 @@ SCRIPT="$AP/$(basename $0)"
 SITE=""
 
 if [ -d /Applications ] ; then # OS X
-  options=$(getopt ht:d: "$@")
+  options=$(getopt ht:d:s: "$@")
 else # GNU getopt
-  options=$(getopt -o ht:d: -l help,dir: -- "$@")
+  options=$(getopt -o ht:d:s: -l settings:,help,dir: -- "$@")
 fi
 
 if [ -z "$options" ] ; then
@@ -37,6 +39,7 @@ eval set -- $options
 until [ -z "$1" ] ; do
   case $1 in
     -h|--help) usage ; exit 1 ;;
+    -s|--settings) dbsettings=$2 ; shift ;;
     -d|--dir) srcdir=$2 ; shift ;;
     -t|--type) SITE=$2 ; shift ;;
     --) shift; break;;
@@ -86,8 +89,36 @@ cleanup() {
   cd $HOME
 }
 
-cd $HOME
+update_db_user() {
+( cat <<MYSQL
+UPDATE mysql.user SET Host='%' WHERE Host='127.0.0.1' AND User='$USERNAME';
+UPDATE mysql.db SET Host='%' WHERE Host='127.0.0.1' AND User='$USERNAME';
+FLUSH PRIVILEGES;
+MYSQL
+) | cat ; echo mysql -h $DBHOST --user="$DBUSER" --password="$DBPASS"
+}
+
+read_settings() {
+DB='rask31.raskesider.no_mysql'
+( cat <<EOF
+<?php
+require_once "$dbsettings";
+\$db=\$databases['$DB']['default'];
+echo "DBUSER='" . \$db['username'] . "'" . PHP_EOL;
+echo "DBPASS='" . \$db['password'] . "'" . PHP_EOL;
+echo "DBHOST='" . \$db['host'] . "'" . PHP_EOL;
+EOF
+) | php
+}
+
+read_config() {
+USERNAME='crankycroc'
+}
+
+eval $(read_settings)
 setup_ssh
 rsync_pull
+read_config
+update_db_user
 rsync_push
 cleanup
