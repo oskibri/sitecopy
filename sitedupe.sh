@@ -57,21 +57,26 @@ if [ -z "$ORIGIN" ] || [ -z "$TARGET" ] ; then
   exit
 fi
 
+
+ssh_copy_id() {
+  echo "adding public key to authorized_keys of $2 ($1)"
+  echo $2 | (read USER ; read HOST ; ssh-keyscan $HOST >> ~/.ssh/known_hosts )
+  ssh-copy-id -i ~/.ssh/id_sitecopy "$2"
+}
+
 setup_ssh() {
   if [ ! -e ~/.ssh/id_sitecopy ] ; then
     echo "generating new public/private key pair"
     ssh-keygen -N "" -f ~/.ssh/id_sitecopy
   fi
-  echo "adding public key to authorized_keys of $ORIGIN (origin)"
-  ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$ORIGIN"
-  echo "adding public key to authorized_keys of $TARGET (target)"
-  ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$TARGET"
-
   if [ -z "$SSH_AGENT_PID" ]; then
     echo "starting local ssh-agent"
     eval `ssh-agent -s`
   fi
   ssh-add ~/.ssh/id_sitecopy
+  
+  ssh_copy_id origin "$ORIGIN"
+  ssh_copy_id target "$TARGET"
 }
 
 rsync_pull () {
@@ -90,12 +95,13 @@ cleanup() {
 }
 
 update_db_user() {
+  # this needs to be run on rask1, where the user has access to the mysql database on all other hosts
 ( cat <<MYSQL
 UPDATE mysql.user SET Host='%' WHERE Host='127.0.0.1' AND User='$USERNAME';
 UPDATE mysql.db SET Host='%' WHERE Host='127.0.0.1' AND User='$USERNAME';
 FLUSH PRIVILEGES;
 MYSQL
-) | cat ; echo mysql -h $DBHOST --user="$DBUSER" --password="$DBPASS"
+) | mysql -h $DBHOST --user="$DBUSER" --password="$DBPASS"
 }
 
 read_settings() {
@@ -111,14 +117,47 @@ EOF
 ) | php
 }
 
+wp_read_config() {
+  ( echo "<?php" ; grep DB_ $1 ; cat <<EOF
+echo 'USERNAME="' . DB_USER . '"' . PHP_EOL;
+EOF
+) | php
+}
+
+mg_read_config() {
+  echo "not implemented: read($1)"
+}
+
 read_config() {
-USERNAME='crankycroc'
+  USERNAME='crankycroc'
+  if [ "$SITE" == "wp" ] ; then
+  wp_read_config "$1/$wpconfig"
+  else
+  mg_read_config "$1/$mgconfig"
+  fi
+}
+
+wp_write_config() {
+  echo "not implemented: write($1)"
+}
+
+mg_write_config() {
+  echo "not implemented: write($1)"
+}
+
+write_config() {
+  if [ "$SITE" == "wp" ] ; then
+  wp_write_config "$1/$wpconfig"
+  else
+  mg_write_config "$1/$mgconfig"
+  fi
 }
 
 eval $(read_settings)
 setup_ssh
 rsync_pull
-read_config
+read_config "/tmp/sites/$ORIGIN/$srcdir"
+write_config "/tmp/sites/$ORIGIN/$srcdir"
 update_db_user
 rsync_push
 cleanup
