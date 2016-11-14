@@ -90,12 +90,14 @@ rsync_push () {
 }
 
 cleanup() {
-#  rm -rf /tmp/sites/$ORIGIN
+  # rm -rf mg-read.xsl wg-write.xsl
+  # rm -rf /tmp/sites/$ORIGIN
   cd $HOME
 }
 
 update_db_user() {
   # this needs to be run on rask1, where the user has access to the mysql database on all other hosts
+echo "updating database user $USERNAME on $DBHOST"
 ( cat <<MYSQL
 UPDATE mysql.user SET Host='%' WHERE Host='127.0.0.1' AND User='$USERNAME';
 UPDATE mysql.db SET Host='%' WHERE Host='127.0.0.1' AND User='$USERNAME';
@@ -125,7 +127,18 @@ EOF
 }
 
 mg_read_config() {
-  echo "not implemented: read($1)"
+( cat <<MGREAD
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:strip-space elements="*" />
+<xsl:output method="text"/>
+<xsl:template match="connection">USERNAME="<xsl:copy-of select="username/text()"/>"
+</xsl:template>
+<xsl:template match="text()"/>
+</xsl:stylesheet>
+MGREAD
+) > mg-read.xsl
+xsltproc mg-read.xsl $1
 }
 
 read_config() {
@@ -142,22 +155,39 @@ wp_write_config() {
 }
 
 mg_write_config() {
-  echo "not implemented: write($1)"
+mv $1 $1.bak
+( cat <<MGWRITE
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:strip-space elements="*" />
+<xsl:output method="xml" indent="yes"/>
+<xsl:template match="node()|@*">
+<xsl:copy><xsl:apply-templates select="node()|@*"/></xsl:copy>
+</xsl:template>
+<xsl:template match="connection/host">
+<host><![CDATA[$2]]></host>
+</xsl:template>
+</xsl:stylesheet>
+MGWRITE
+) > mg-write.xsl
+xsltproc mg-write.xsl $1.bak > $1
+rm $1.bak
 }
 
 write_config() {
   if [ "$SITE" == "wp" ] ; then
-  wp_write_config "$1/$wpconfig"
+  wp_write_config "$1/$wpconfig" $2
   else
-  mg_write_config "$1/$mgconfig"
+  mg_write_config "$1/$mgconfig" $2
   fi
 }
 
 eval $(read_settings)
+HOSTNAME=`echo $ORIGIN | cut -d@ -f2`
 setup_ssh
 rsync_pull
-read_config "/tmp/sites/$ORIGIN/$srcdir"
-write_config "/tmp/sites/$ORIGIN/$srcdir"
+eval $(read_config "/tmp/sites/$ORIGIN/$srcdir")
+write_config "/tmp/sites/$ORIGIN/$srcdir" $HOSTNAME
 update_db_user
 rsync_push
 cleanup
