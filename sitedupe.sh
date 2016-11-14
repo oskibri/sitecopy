@@ -120,7 +120,7 @@ EOF
 }
 
 wp_read_config() {
-  ( echo "<?php" ; grep DB_ $1 ; cat <<EOF
+  ( echo "<?php" ; grep DB_USER $1 ; cat <<EOF
 echo 'USERNAME="' . DB_USER . '"' . PHP_EOL;
 EOF
 ) | php
@@ -151,7 +151,9 @@ read_config() {
 }
 
 wp_write_config() {
-  echo "not implemented: write($1)"
+  mv $1 $1.bak
+  sed -e 's/\(DB_HOST.*\)localhost/\1'$2'/' < $1.bak > $1
+  rm $1.bak
 }
 
 mg_write_config() {
@@ -188,6 +190,6 @@ setup_ssh
 rsync_pull
 eval $(read_config "/tmp/sites/$ORIGIN/$srcdir")
 write_config "/tmp/sites/$ORIGIN/$srcdir" $HOSTNAME
-update_db_user
 rsync_push
+update_db_user
 cleanup
