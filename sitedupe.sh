@@ -60,7 +60,7 @@ fi
 
 ssh_copy_id() {
   echo "adding public key to authorized_keys of $2 ($1)"
-  echo $2 | (read USER ; read HOST ; ssh-keyscan $HOST >> ~/.ssh/known_hosts )
+  echo $2 | cut -d@ -f2 | (read ; ssh-keyscan $REPLY >> ~/.ssh/known_hosts )
   ssh-copy-id -i ~/.ssh/id_sitecopy "$2"
 }
 
@@ -74,7 +74,7 @@ setup_ssh() {
     eval `ssh-agent -s`
   fi
   ssh-add ~/.ssh/id_sitecopy
-  
+
   ssh_copy_id origin "$ORIGIN"
   ssh_copy_id target "$TARGET"
 }
