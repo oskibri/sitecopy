@@ -107,7 +107,7 @@ MYSQL
 }
 
 read_settings() {
-DB='rask31.raskesider.no_mysql'
+DB="$1_mysql"
 ( cat <<EOF
 <?php
 require_once "$dbsettings";
@@ -184,8 +184,8 @@ write_config() {
   fi
 }
 
-eval $(read_settings)
 HOSTNAME=`echo $ORIGIN | cut -d@ -f2`
+eval $(read_settings $HOSTNAME)
 setup_ssh
 rsync_pull
 eval $(read_config "/tmp/sites/$ORIGIN/$srcdir")
