@@ -72,6 +72,7 @@ setup_ssh() {
   if [ -z "$SSH_AGENT_PID" ]; then
     echo "starting local ssh-agent"
     eval `ssh-agent -s`
+    trap "kill $SSH_AGENT_PID" EXIT
   fi
   ssh-add ~/.ssh/id_sitecopy
 
