@@ -2,13 +2,15 @@
 
 wpconfig="wp-config.php"
 mgconfig="app/etc/local.xml"
-srcdir="public"
+fromdir="~/public"
+todir="~/public"
 pause=0
 
 usage() {
   echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
-  echo "  -d, --dir[=path]    source directory (default: public)"
+  echo "  -s, --src[=path]    source directory (default: ~/public)"
+  echo "  -d, --dest[=path]   destination directory (default: ~/public)"
   echo "  -u, --user[=name]   run this script under another account."
   echo "  -t, --type[=name]   website type (wp=Wordpress, mg=Magento)."
   echo "  -p, --pause         wait for keypress before database transfer."
@@ -25,9 +27,9 @@ USER=`whoami`
 SITE=""
 
 if [ -d /Applications ] ; then # OS X
-  options=$(getopt phu:t:d: "$@")
+  options=$(getopt phu:t:s:d: "$@")
 else # GNU getopt
-  options=$(getopt -o phu:t:d: -l pause,help,user:,dir: -- "$@")
+  options=$(getopt -o phu:t:s:d: -l pause,help,user:,src:,dest: -- "$@")
 fi
 
 if [ -z "$options" ] ; then
@@ -41,7 +43,8 @@ until [ -z "$1" ] ; do
   case $1 in
     -h|--help) usage ; exit 1 ;;
     -p|--pause) pause=1 ;;
-    -d|--dir) srcdir=$2 ; shift ;;
+    -d|--dest) todir=$2 ; shift ;;
+    -s|--src) fromdir=$2 ; shift ;;
     -u|--user) USER=$2 ; shift ;;
     -t|--type) SITE=$2 ; shift ;;
     --) shift; break;;
@@ -101,13 +104,16 @@ EOF
 }
 
 config_read() {
-  mkdir -p ~/public
   if [ "$SITE" = "wp" ] ; then
-    scp $SOURCE:$srcdir/$wpconfig ~/public/$(dirname $wpconfig)
-    eval `wp_read_config public/$wpconfig`
+    confdir=$todir/$(dirname $wpconfig)
+    mkdir -p $confdir
+    scp $SOURCE:$fromdir/$wpconfig $confdir
+    eval `wp_read_config $todir/$wpconfig`
   elif [ "$SITE" = "mg" ] ; then
-    scp $SOURCE:$srcdir/$mgconfig ~/public/$(dirname $mgconfig)
-    eval `mg_read_config public/$mgconfig`
+    confdir=$todir/$(dirname $mgconfig)
+    mkdir -p $confdir
+    scp $SOURCE:$fromdir/$mgconfig $confdir
+    eval `mg_read_config $todir/$mgconfig`
     echo "remote database is $SRCDBNAME"
   fi
 }
@@ -164,7 +170,7 @@ dbconf_remote() {
 }
 
 config_write_wp() {
-mv public/$wpconfig public/$wpconfig.orig
+mv $todir/$wpconfig $todir/$wpconfig.orig
 ( cat <<AWK
 \$0 ~ "DB_PASSWORD" { print substr(\$0, 1, index(\$0, "$SRCDBPASS")-1) "$DSTDBPASS" substr(\$0, length("$SRCDBPASS")+index(\$0, "$SRCDBPASS")) }
 \$0 ~ "DB_USER" { sub("$SRCDBUSER","$DSTDBUSER") }
@@ -172,11 +178,11 @@ mv public/$wpconfig public/$wpconfig.orig
 \$0 !~ "DB_PASSWORD" { print }
 AWK
 ) > rules.awk
-awk -f rules.awk < public/$wpconfig.orig > public/$wpconfig
+awk -f rules.awk < $todir/$wpconfig.orig > $todir/$wpconfig
 }
 
 config_write_mg() {
-mv public/$mgconfig public/$mgconfig.orig
+mv $todir/$mgconfig $todir/$mgconfig.orig
 ( cat <<XSL
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
@@ -199,7 +205,7 @@ cdata-section-elements="date key table_prefix session_save password dbname usern
 </xsl:stylesheet>
 XSL
 ) > mg-write.xsl
-xsltproc mg-write.xsl public/$mgconfig.orig |xmllint --format - > public/$mgconfig
+xsltproc mg-write.xsl $todir/$mgconfig.orig |xmllint --format - > $todir/$mgconfig
 }
 
 config_write() {
@@ -211,8 +217,8 @@ fi
 }
 
 rsync_public () {
-  echo "copying public folder from $SOURCE:$srcdir"
-  rsync --exclude var/cache --delete -rave ssh $SOURCE:$srcdir/ public
+  echo "copying website folder from $SOURCE:$fromdir"
+  rsync --exclude var/cache --delete -rave ssh $SOURCE:$fromdir/ $todir
 }
 
 db_transfer() {
@@ -228,15 +234,22 @@ fi
 if [ ! -z "$DSTDBNAME" ] ; then
   echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlfile"
   if [ -e $sqlfile ] ; then
-    sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' $sqlfile | \
+    ( [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 0;" ; \
+    sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' $sqlfile ; \
+    [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 1;" ) | \
       mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME
+    rm -f $sqlfile
   fi
 fi
 }
 
 cleanup() {
   cd $HOME
-  rm -f sitecopy.sql public/$wpconfig.orig public/$mgconfig.orig rules.awk mg-read.xsl mg-write.xsl .ssh/id_sitecopy*
+  rm -f \
+    rules.awk mg-read.xsl mg-write.xsl \
+    $todir/$wpconfig.orig \
+    $todir/$mgconfig.orig \
+    .ssh/id_sitecopy*
 }
 
 cd $HOME
