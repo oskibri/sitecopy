@@ -2,8 +2,8 @@
 
 wpconfig="wp-config.php"
 mgconfig="app/etc/local.xml"
-fromdir="~/public"
-todir="~/public"
+fromdir="public"
+todir="$HOME/public"
 pause=0
 
 usage() {
