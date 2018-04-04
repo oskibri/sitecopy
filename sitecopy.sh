@@ -309,6 +309,7 @@ if [ ! -z "$DSTDBNAME" ] ; then
       mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME
   fi
 fi
+rm -f $sqlfile
 }
 
 cleanup() {
