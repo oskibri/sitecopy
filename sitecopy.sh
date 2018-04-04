@@ -7,15 +7,31 @@ fromdir="public"
 todir="$HOME/public"
 pause=0
 
+GETOPT=getopt
+GETOPT_LONG=1
+
+if [ "Darwin" = "$(uname)" ] ; then
+  if [ -x "/usr/local/opt/gnu-getopt/bin/getopt" ] ; then
+    GETOPT="/usr/local/opt/gnu-getopt/bin/getopt"
+  else
+    GETOPT_LONG=0
+  fi
+fi
+
 usage() {
   echo "usage: $0 [OPTIONS] user@hostname local-db [remote-db]"
   echo "Options"
-  echo "  -s, --src[=path]    source directory (default: ~/public)"
-  echo "  -d, --dest[=path]   destination directory (default: ~/public)"
-  echo "  -u, --user[=name]   run this script under another account."
-  echo "  -t, --type[=name]   website type (wp=Wordpress, mg=Magento, m2=M2)."
-  echo "  -p, --pause         wait for keypress before database transfer."
-  echo "  -h, --help          display this help and exit."
+  echo " -s, --src=DIR         source directory (default: ~/public)"
+  echo " -d, --dest=DIR        destination directory (default: ~/public)"
+  echo " -u, --user=NAME       run this script under another account."
+  echo " -t, --type=CMS        website type (wp=Wordpress, mg=Magento, m2=M2)."
+  echo " -p, --pause           wait for keypress before database transfer."
+  echo " -h, --help            display this help and exit."
+  echo " -e, --exclude=PATTERN exclude files from transfer."
+  if [ $GETOPT_LONG -eq 0 ]; then
+    echo ""
+    echo "warning: long options are not supported on this system."
+  fi
 }
 
 abspath() {
@@ -27,10 +43,10 @@ SCRIPT="$AP/$(basename $0)"
 USER=`whoami`
 SITE=""
 
-if [ -d /Applications ] ; then # OS X
-  options=$(getopt phu:t:s:d: "$@")
-else # GNU getopt
-  options=$(getopt -o phu:t:s:d: -l pause,help,user:,src:,dest: -- "$@")
+if [ $GETOPT_LONG -eq 1 ]; then
+  options=$(${GETOPT} -o phu:t:s:d:e: -l pause,help,user:,src:,dest:,exclude: -- "$@")
+else # assume GNU getopt (long arguments)
+  options=$(${GETOPT} phu:t:s:d:e: "$@")
 fi
 
 if [ -z "$options" ] ; then
@@ -40,8 +56,13 @@ fi
 
 eval set -- $options
 
+EXCLUDE=""
 until [ -z "$1" ] ; do
   case $1 in
+    -e|--exclude)
+      EXCLUDE="--exclude $2 $EXCLUDE"
+      shift
+      ;;
     -h|--help) usage ; exit 1 ;;
     -p|--pause) pause=1 ;;
     -d|--dest) todir=$2 ; shift ;;
@@ -266,7 +287,7 @@ config_write() {
 
 rsync_public () {
   echo "copying website folder from $SOURCE:$fromdir"
-  rsync --exclude var/cache --delete -rave ssh $SOURCE:$fromdir/ $todir
+  rsync $* --exclude var/cache --delete -rave ssh $SOURCE:$fromdir/ $todir
 }
 
 db_transfer() {
@@ -303,7 +324,7 @@ setup_ssh
 config_read
 dbconf_remote
 dbconf_local
-rsync_public
+rsync_public $EXCLUDE
 config_write
 db_transfer sitecopy.sql
 cleanup
