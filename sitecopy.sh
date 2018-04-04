@@ -99,6 +99,7 @@ wp_read_config() {
 echo 'SRCDBPASS="' . DB_PASSWORD . '"' . PHP_EOL;
 echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
 echo 'SRCDBNAME="' . DB_NAME . '"' . PHP_EOL;
+echo 'SRCDBHOST="' . DB_HOST . '"' . PHP_EOL;
 EOF
 ) | php
 }
@@ -157,6 +158,7 @@ dbconf_remote() {
   if [ ! -z "$SRCDB" ] ; then
     [ -z "$SRCDBNAME" ] && SRCDBNAME=$SRCDB
     [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
+    [ -z "$SRCDBHOST" ] && SRCDBHOST=localhost
   fi
   if [ -z "$SRCDBPASS" ] && [ ! -z "$SRCDBNAME" ] ; then
     echo "querying remote database information"
@@ -230,7 +232,7 @@ if [ ! -z "$SRCDBNAME" ] ; then
     echo
   fi
   echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlfile"
-  ssh $SOURCE "mysqldump --password=\"$SRCDBPASS\" -u $SRCDBUSER $SRCDBNAME" > $sqlfile
+  ssh $SOURCE "mysqldump -h $SRCDBHOST --password=\"$SRCDBPASS\" -u $SRCDBUSER $SRCDBNAME" > $sqlfile
 fi
 if [ ! -z "$DSTDBNAME" ] ; then
   echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlfile"
@@ -239,7 +241,6 @@ if [ ! -z "$DSTDBNAME" ] ; then
     sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' $sqlfile ; \
     [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 1;" ) | \
       mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME
-    rm -f $sqlfile
   fi
 fi
 }
