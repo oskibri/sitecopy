@@ -2,6 +2,7 @@
 
 wpconfig="wp-config.php"
 mgconfig="app/etc/local.xml"
+m2config="app/etc/env.php"
 fromdir="public"
 todir="$HOME/public"
 pause=0
@@ -12,7 +13,7 @@ usage() {
   echo "  -s, --src[=path]    source directory (default: ~/public)"
   echo "  -d, --dest[=path]   destination directory (default: ~/public)"
   echo "  -u, --user[=name]   run this script under another account."
-  echo "  -t, --type[=name]   website type (wp=Wordpress, mg=Magento)."
+  echo "  -t, --type[=name]   website type (wp=Wordpress, mg=Magento, m2=M2)."
   echo "  -p, --pause         wait for keypress before database transfer."
   echo "  -h, --help          display this help and exit."
 }
@@ -104,6 +105,19 @@ EOF
 ) | php
 }
 
+m2_read_config() {
+( cat <<EOF
+<?php
+\$conf = include('$1');
+\$db = \$conf['db']['connection']['default'];
+echo 'SRCDBPASS="' . \$db['password'] . '"' . PHP_EOL;
+echo 'SRCDBUSER="' . \$db['username'] . '"' . PHP_EOL;
+echo 'SRCDBNAME="' . \$db['dbname'] . '"' . PHP_EOL;
+echo 'SRCDBHOST="' . \$db['host'] . '"' . PHP_EOL;
+EOF
+) | php
+}
+
 config_read() {
   if [ "$SITE" = "wp" ] ; then
     confdir=$todir/$(dirname $wpconfig)
@@ -115,6 +129,12 @@ config_read() {
     mkdir -p $confdir
     scp $SOURCE:$fromdir/$mgconfig $confdir
     eval `mg_read_config $todir/$mgconfig`
+    echo "remote database is $SRCDBNAME"
+  elif [ "$SITE" = "m2" ] ; then
+    confdir=$todir/$(dirname $m2config)
+    mkdir -p $confdir
+    scp $SOURCE:$fromdir/$m2config $confdir
+    eval `m2_read_config $todir/$m2config`
     echo "remote database is $SRCDBNAME"
   fi
 }
@@ -173,7 +193,6 @@ dbconf_remote() {
 }
 
 config_write_wp() {
-mv $todir/$wpconfig $todir/$wpconfig.orig
 ( cat <<AWK
 \$0 ~ "DB_PASSWORD" { print substr(\$0, 1, index(\$0, "$SRCDBPASS")-1) "$DSTDBPASS" substr(\$0, length("$SRCDBPASS")+index(\$0, "$SRCDBPASS")) }
 \$0 ~ "DB_USER" { sub("$SRCDBUSER","$DSTDBUSER") }
@@ -181,11 +200,27 @@ mv $todir/$wpconfig $todir/$wpconfig.orig
 \$0 !~ "DB_PASSWORD" { print }
 AWK
 ) > rules.awk
-awk -f rules.awk < $todir/$wpconfig.orig > $todir/$wpconfig
+awk -f rules.awk < $1
+}
+
+config_write_m2() {
+( cat <<REWRITE
+<?php
+\$conf = include('$1');
+\$con = \$conf['resource']['default_setup']['connection'];
+if (empty(\$con)) \$con = 'default';
+\$db = &\$conf['db']['connection'][\$con];
+\$db['host'] = 'localhost';
+\$db['username'] = '$DSTDBUSER';
+\$db['password'] = '$DSTDBPASS';
+\$db['dbname'] = '$DSTDBNAME';
+echo '<?php' . PHP_EOL;
+echo 'return ' . var_export(\$conf, TRUE) . ';' . PHP_EOL;
+REWRITE
+) | php
 }
 
 config_write_mg() {
-mv $todir/$mgconfig $todir/$mgconfig.orig
 ( cat <<XSL
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
@@ -208,15 +243,25 @@ cdata-section-elements="date key table_prefix session_save password dbname usern
 </xsl:stylesheet>
 XSL
 ) > mg-write.xsl
-xsltproc mg-write.xsl $todir/$mgconfig.orig |xmllint --format - > $todir/$mgconfig
+xsltproc mg-write.xsl $1 |xmllint --format -
 }
 
 config_write() {
-if [ "$SITE" = "wp" ] ; then
-  config_write_wp
-elif [ "$SITE" = "mg" ] ; then
-  config_write_mg
-fi
+  bak="$todir/config.bak"
+  if [ "$SITE" = "wp" ] ; then
+    cfg="$todir/$wpconfig"
+    mv "$cfg" "$bak"
+    config_write_wp "$bak" > "$cfg"
+  elif [ "$SITE" = "mg" ] ; then
+    cfg="$todir/$mgconfig"
+    mv "$cfg" "$bak"
+    config_write_mg "$bak" > "$cfg"
+  elif [ "$SITE" = "m2" ] ; then
+    cfg="$todir/$m2config"
+    mv "$cfg" "$bak"
+    config_write_m2 "$bak" > "$cfg"
+  fi
+  rm -f "$bak"
 }
 
 rsync_public () {
@@ -249,8 +294,6 @@ cleanup() {
   cd $HOME
   rm -f \
     rules.awk mg-read.xsl mg-write.xsl \
-    $todir/$wpconfig.orig \
-    $todir/$mgconfig.orig \
     .ssh/id_sitecopy*
 }
 
