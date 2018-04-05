@@ -7,6 +7,7 @@ fromdir="public"
 todir="$HOME/public"
 pause=0
 
+TMPDIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename "$0").XXXXXXXXXXXX")
 GETOPT=getopt
 GETOPT_LONG=1
 
@@ -35,12 +36,15 @@ usage() {
 }
 
 abspath() {
-  echo $(cd "$(dirname $1)" ;pwd -P)
+  ( 
+    cd "$(dirname "$1")" || return
+    pwd -P
+  )
 }
 
-AP=`abspath $0`
-SCRIPT="$AP/$(basename $0)"
-USER=`whoami`
+AP=$(abspath "$0")
+SCRIPT="$AP/$(basename "$0")"
+USER=$(whoami)
 SITE=""
 
 if [ $GETOPT_LONG -eq 1 ]; then
@@ -54,13 +58,13 @@ if [ -z "$options" ] ; then
   exit 1
 fi
 
-eval set -- $options
+eval set -- "$options"
 
-EXCLUDE=""
+declare -a exclude=( var/cache )
 until [ -z "$1" ] ; do
   case $1 in
     -e|--exclude)
-      EXCLUDE="--exclude $2 $EXCLUDE"
+      exclude=( "${exclude[@]}" "$2" )
       shift
       ;;
     -h|--help) usage ; exit 1 ;;
@@ -81,10 +85,10 @@ if [ "$USER" = "root" ] ; then
   exit 1
 fi
 
-if [ ! "$USER" = "`whoami`" ] ; then
+if [ ! "$USER" = "$(whoami)" ] ; then
   echo "running $0 as $USER"
   CMD="$SCRIPT $*"
-  su $USER -c "echo $CMD"
+  su "$USER" -c "echo $CMD"
   exit
 fi
 
@@ -112,12 +116,12 @@ SRCDBNAME="<xsl:copy-of select="dbname/text()"/>"
 <xsl:template match="text()"/>
 </xsl:stylesheet>
 XSL
-) > mg-read.xsl
-xsltproc mg-read.xsl $1
+) > "$TMPDIR/mg-read.xsl"
+xsltproc "$TMPDIR/mg-read.xsl" "$1"
 }
 
 wp_read_config() {
-  ( echo "<?php" ; grep DB_ $1 ; cat <<EOF
+  ( echo "<?php" ; grep DB_ "$1" ; cat <<EOF
 echo 'SRCDBPASS="' . DB_PASSWORD . '"' . PHP_EOL;
 echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
 echo 'SRCDBNAME="' . DB_NAME . '"' . PHP_EOL;
@@ -142,20 +146,20 @@ EOF
 config_read() {
   if [ "$SITE" = "wp" ] ; then
     confdir=$todir/$(dirname $wpconfig)
-    mkdir -p $confdir
-    scp $SOURCE:$fromdir/$wpconfig $confdir
-    eval `wp_read_config $todir/$wpconfig`
+    mkdir -p "$confdir"
+    scp "$SOURCE:$fromdir/$wpconfig" "$confdir"
+    eval "$(wp_read_config "$todir/$wpconfig")"
   elif [ "$SITE" = "mg" ] ; then
-    confdir=$todir/$(dirname $mgconfig)
-    mkdir -p $confdir
-    scp $SOURCE:$fromdir/$mgconfig $confdir
-    eval `mg_read_config $todir/$mgconfig`
+    confdir="$todir/$(dirname "$mgconfig")"
+    mkdir -p "$confdir"
+    scp "$SOURCE:$fromdir/$mgconfig" "$confdir"
+    eval "$(mg_read_config "$todir/$mgconfig")"
     echo "remote database is $SRCDBNAME"
   elif [ "$SITE" = "m2" ] ; then
     confdir=$todir/$(dirname $m2config)
-    mkdir -p $confdir
-    scp $SOURCE:$fromdir/$m2config $confdir
-    eval `m2_read_config $todir/$m2config`
+    mkdir -p "$confdir"
+    scp "$SOURCE:$fromdir/$m2config" "$confdir"
+    eval "$(m2_read_config "$todir/$m2config")"
     echo "remote database is $SRCDBNAME"
   fi
 }
@@ -169,11 +173,18 @@ setup_ssh() {
   ssh-copy-id -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
 
   if [ -z "$SSH_AGENT_PID" ]; then
-    echo "starting local ssh-agent"
-    eval `ssh-agent -s`
-    trap "kill $SSH_AGENT_PID" EXIT
+    eval "$(ssh-agent -s)"
+    echo "starting local ssh-agent, pid ${SSH_AGENT_PID}"
+    # shellcheck disable=SC2064
+    trap "kill ${SSH_AGENT_PID}" EXIT
   fi
   ssh-add ~/.ssh/id_sitecopy
+}
+
+
+mycfg_create() {
+  echo "[client]"
+  echo "password=$1"
 }
 
 dbconf_local() {
@@ -184,14 +195,15 @@ dbconf_local() {
   fi
   if [ -z "$DSTDBPASS" ] && [ ! -z "$DSTDBNAME" ] ; then
     echo "querying local database information"
-    read -e -p "database name [$DSTDBNAME]:" DSTDB
+    read -re -p "database name [$DSTDBNAME]:" DSTDB
     [ -z "$DSTDB" ] || DSTDBNAME=$DSTDB
     [ -z "$DSTDBUSER" ] && DSTDBUSER=$DSTDB
-    read -e -p "database user [$DSTDBUSER]:" DSTDB
+    read -re -p "database user [$DSTDBUSER]:" DSTDB
     [ -z "$DSTDB" ] || DSTDBUSER=$DSTDB
-    read -s -p "database password for $DSTDBUSER@$DSTDBNAME:" DSTDBPASS
+    read -rs -p "database password for $DSTDBUSER@$DSTDBNAME:" DSTDBPASS
     echo
   fi
+  mycfg_create "$DSTDBPASS" > "$TMPDIR/.servebolt.cnf"
 }
 
 dbconf_remote() {
@@ -203,14 +215,15 @@ dbconf_remote() {
   fi
   if [ -z "$SRCDBPASS" ] && [ ! -z "$SRCDBNAME" ] ; then
     echo "querying remote database information"
-    read -e -p "database name [$SRCDBNAME]:" SRCDB
-    [ -z "$RCDB" ] || SRCDBNAME=$SRCDB
+    read -er -p "database name [$SRCDBNAME]:" SRCDB
+    [ -z "$SRCDB" ] || SRCDBNAME=$SRCDB
     [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
-    read -e -p "database user [$SRCDBUSER]:" SRCDB
+    read -er -p "database user [$SRCDBUSER]:" SRCDB
     [ -z "$SRCDB" ] || SRCDBUSER=$SRCDB
-    read -s -p "database password for $SRCDBUSER@$SRCDBNAME:" SRCDBPASS
+    read -sr -p "database password for $SRCDBUSER@$SRCDBNAME:" SRCDBPASS
     echo
   fi
+  mycfg_create "$SRCDBPASS" | ssh "$SOURCE" "umask 077 ; cat > .servebolt.cnf"
 }
 
 config_write_wp() {
@@ -220,8 +233,8 @@ config_write_wp() {
 \$0 ~ "DB_NAME" { sub("$SRCDBNAME","$DSTDBNAME") }
 \$0 !~ "DB_PASSWORD" { print }
 AWK
-) > rules.awk
-awk -f rules.awk < $1
+) > "$TMPDIR/rules.awk"
+awk -f "$TMPDIR/rules.awk" < "$1"
 }
 
 config_write_m2() {
@@ -263,12 +276,12 @@ cdata-section-elements="date key table_prefix session_save password dbname usern
 </xsl:template>
 </xsl:stylesheet>
 XSL
-) > mg-write.xsl
-xsltproc mg-write.xsl $1 |xmllint --format -
+) > "$TMPDIR/mg-write.xsl"
+xsltproc "$TMPDIR/mg-write.xsl" "$1" |xmllint --format -
 }
 
 config_write() {
-  bak="$todir/config.bak"
+  bak="$TMPDIR/config.bak"
   if [ "$SITE" = "wp" ] ; then
     cfg="$todir/$wpconfig"
     mv "$cfg" "$bak"
@@ -282,50 +295,60 @@ config_write() {
     mv "$cfg" "$bak"
     config_write_m2 "$bak" > "$cfg"
   fi
-  rm -f "$bak"
 }
 
 rsync_public () {
   echo "copying website folder from $SOURCE:$fromdir"
-  rsync $* --exclude var/cache --delete -rave ssh $SOURCE:$fromdir/ $todir
+  (
+  for ex in "$@" ; do
+    echo "$ex"
+  done
+  ) > "$TMPDIR/excludes"
+  rsync --exclude-from="$TMPDIR/excludes" --delete -rave ssh "$SOURCE:$fromdir/" "$todir"
+}
+
+db_export() {
+  args="-h $SRCDBHOST -u $SRCDBUSER $SRCDBNAME"
+  # shellcheck disable=SC2029
+  ssh "$SOURCE" "mysqldump --defaults-file=.servebolt.cnf $args ; rm .servebolt.cnf" > "$sqlfile"
 }
 
 db_transfer() {
 sqlfile=$1
+sqlbase=$(basename "$sqlfile")
 if [ ! -z "$SRCDBNAME" ] ; then
   if [ $pause -eq 1 ] ; then
-    read -s -n 1 -p "press any key to start databse transfer."
+    read -rs -n 1 -p "press any key to start databse transfer."
     echo
   fi
-  echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlfile"
-  ssh $SOURCE "mysqldump -h $SRCDBHOST --password=\"$SRCDBPASS\" -u $SRCDBUSER $SRCDBNAME" > $sqlfile
+  echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlbase"
+  db_export
 fi
 if [ ! -z "$DSTDBNAME" ] ; then
-  echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlfile"
-  if [ -e $sqlfile ] ; then
+  echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlbase"
+  if [ -e "$sqlfile" ] ; then
+    # shellcheck disable=SC2016
     ( [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 0;" ; \
-    sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' $sqlfile ; \
+    sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' "$sqlfile" ; \
     [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 1;" ) | \
-      mysql --user="$DSTDBUSER" --password="$DSTDBPASS" $DSTDBNAME
+      mysql --defaults-file="$TMPDIR/.servebolt.cnf" -u "$DSTDBUSER" "$DSTDBNAME"
   fi
 fi
-rm -f $sqlfile
+rm -f "$sqlfile"
 }
 
 cleanup() {
-  cd $HOME
-  rm -f \
-    rules.awk mg-read.xsl mg-write.xsl \
-    .ssh/id_sitecopy*
+  rm -rf "$TMPDIR" \
+    ~/.ssh/id_sitecopy*
 }
 
-cd $HOME
+cd ~ || exit
 echo "copy site from $SOURCE to $PWD"
 setup_ssh
 config_read
 dbconf_remote
 dbconf_local
-rsync_public $EXCLUDE
+rsync_public "${exclude[@]}"
 config_write
-db_transfer sitecopy.sql
+db_transfer "$TMPDIR/sitecopy.sql"
 cleanup
