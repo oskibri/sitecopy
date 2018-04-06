@@ -7,6 +7,7 @@ fromdir="public"
 todir="$HOME/public"
 pause=0
 
+DSTDBHOST="localhost"
 TMPDIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename "$0").XXXXXXXXXXXX")
 GETOPT=getopt
 GETOPT_LONG=1
@@ -231,6 +232,7 @@ config_write_wp() {
 \$0 ~ "DB_PASSWORD" { print substr(\$0, 1, index(\$0, "$SRCDBPASS")-1) "$DSTDBPASS" substr(\$0, length("$SRCDBPASS")+index(\$0, "$SRCDBPASS")) }
 \$0 ~ "DB_USER" { sub("$SRCDBUSER","$DSTDBUSER") }
 \$0 ~ "DB_NAME" { sub("$SRCDBNAME","$DSTDBNAME") }
+\$0 ~ "DB_HOST" { sub("$SRCDBHOST","$DSTDBHOST") }
 \$0 !~ "DB_PASSWORD" { print }
 AWK
 ) > "$TMPDIR/rules.awk"
@@ -244,10 +246,11 @@ config_write_m2() {
 \$con = \$conf['resource']['default_setup']['connection'];
 if (empty(\$con)) \$con = 'default';
 \$db = &\$conf['db']['connection'][\$con];
-\$db['host'] = 'localhost';
+\$db['host'] = '$DSTDBHOST';
 \$db['username'] = '$DSTDBUSER';
 \$db['password'] = '$DSTDBPASS';
 \$db['dbname'] = '$DSTDBNAME';
+\$db['host'] = '$DSTDBHOST';
 echo '<?php' . PHP_EOL;
 echo 'return ' . var_export(\$conf, TRUE) . ';' . PHP_EOL;
 REWRITE
@@ -264,6 +267,9 @@ cdata-section-elements="date key table_prefix session_save password dbname usern
 <xsl:copy>
 <xsl:apply-templates select="@*|node()"/>
 </xsl:copy>
+</xsl:template>
+<xsl:template match="host">
+<host><![CDATA[$DSTDBHOST]]></host>
 </xsl:template>
 <xsl:template match="username">
 <username><![CDATA[$DSTDBUSER]]></username>
