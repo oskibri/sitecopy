@@ -313,7 +313,7 @@ rsync_public () {
     echo "$ex"
   done
   ) > "$TMPDIR/excludes"
-  rsync --exclude-from="$TMPDIR/excludes" --delete -rave ssh -p $port "$SOURCE:$fromdir/" "$todir"
+  rsync --exclude-from="$TMPDIR/excludes" --delete -rave "ssh -p $port" "$SOURCE:$fromdir/" "$todir"
 }
 
 db_export() {
