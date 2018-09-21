@@ -7,6 +7,7 @@ fromdir="public"
 todir="$HOME/public"
 port=22
 pause=0
+tmpkey=0
 
 DSTDBHOST="localhost"
 TMPDIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename "$0").XXXXXXXXXXXX")
@@ -30,6 +31,7 @@ usage() {
   echo " -u, --user=NAME       run this script under another account."
   echo " -t, --type=CMS        website type (wp=Wordpress, mg=Magento, m2=M2)."
   echo " -p, --pause           wait for keypress before database transfer."
+  echo " -k, --key             create a temporary ssh key."
   echo " -h, --help            display this help and exit."
   echo " -e, --exclude=PATTERN exclude files from transfer."
   if [ $GETOPT_LONG -eq 0 ]; then
@@ -51,9 +53,9 @@ USER=$(whoami)
 SITE=""
 
 if [ $GETOPT_LONG -eq 1 ]; then
-  options=$(${GETOPT} -o phP:u:t:s:d:e: -l pause,help,port:,user:,src:,dest:,exclude: -- "$@")
+  options=$(${GETOPT} -o kphP:u:t:s:d:e: -l key,pause,help,port:,user:,src:,dest:,exclude: -- "$@")
 else # assume GNU getopt (long arguments)
-  options=$(${GETOPT} phP:u:t:s:d:e: "$@")
+  options=$(${GETOPT} kphP:u:t:s:d:e: "$@")
 fi
 
 if [ -z "$options" ] ; then
@@ -73,6 +75,7 @@ until [ -z "$1" ] ; do
     -h|--help) usage ; exit 1 ;;
     -P|--port) port=$2 ; shift ;;
     -p|--pause) pause=1 ;;
+    -k|--key) tmpkey=1 ;;
     -d|--dest) todir=$2 ; shift ;;
     -s|--src) fromdir=$2 ; shift ;;
     -u|--user) USER=$2 ; shift ;;
@@ -151,18 +154,18 @@ config_read() {
   if [ "$SITE" = "wp" ] ; then
     confdir=$todir/$(dirname $wpconfig)
     mkdir -p "$confdir"
-    scp -P $port "$SOURCE:$fromdir/$wpconfig" "$confdir"
+    scp -P "$port" "$SOURCE:$fromdir/$wpconfig" "$confdir"
     eval "$(wp_read_config "$todir/$wpconfig")"
   elif [ "$SITE" = "mg" ] ; then
     confdir="$todir/$(dirname "$mgconfig")"
     mkdir -p "$confdir"
-    scp -P $port "$SOURCE:$fromdir/$mgconfig" "$confdir"
+    scp -P "$port" "$SOURCE:$fromdir/$mgconfig" "$confdir"
     eval "$(mg_read_config "$todir/$mgconfig")"
     echo "remote database is $SRCDBNAME"
   elif [ "$SITE" = "m2" ] ; then
     confdir=$todir/$(dirname $m2config)
     mkdir -p "$confdir"
-    scp -P $port "$SOURCE:$fromdir/$m2config" "$confdir"
+    scp -P "$port" "$SOURCE:$fromdir/$m2config" "$confdir"
     eval "$(m2_read_config "$todir/$m2config")"
     echo "remote database is $SRCDBNAME"
   fi
@@ -174,8 +177,7 @@ setup_ssh() {
     ssh-keygen -N "" -f ~/.ssh/id_sitecopy
   fi
   echo "adding public key to authorized_keys"
-  ssh-copy-id -p $port -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
-
+  ssh-copy-id -p "$port" -o StrictHostKeyChecking=no -o PreferredAuthentications=password -i ~/.ssh/id_sitecopy "$SOURCE"
   if [ -z "$SSH_AGENT_PID" ]; then
     eval "$(ssh-agent -s)"
     echo "starting local ssh-agent, pid ${SSH_AGENT_PID}"
@@ -227,7 +229,7 @@ dbconf_remote() {
     read -sr -p "database password for $SRCDBUSER@$SRCDBNAME:" SRCDBPASS
     echo
   fi
-  mycfg_create "$SRCDBPASS" | ssh -p $port "$SOURCE" "umask 077 ; cat > .servebolt.cnf"
+  mycfg_create "$SRCDBPASS" | ssh -p "$port" "$SOURCE" "umask 077 ; cat > .servebolt.cnf"
 }
 
 config_write_wp() {
@@ -319,7 +321,7 @@ rsync_public () {
 db_export() {
   args="-h $SRCDBHOST -u $SRCDBUSER $SRCDBNAME"
   # shellcheck disable=SC2029
-  ssh -p $port "$SOURCE" "mysqldump --defaults-file=.servebolt.cnf $args ; rm .servebolt.cnf" > "$sqlfile"
+  ssh -p "$port" "$SOURCE" "mysqldump --defaults-file=.servebolt.cnf $args ; rm .servebolt.cnf" > "$sqlfile"
 }
 
 db_transfer() {
@@ -347,13 +349,17 @@ rm -f "$sqlfile"
 }
 
 cleanup() {
-  rm -rf "$TMPDIR" \
-    ~/.ssh/id_sitecopy*
+  rm -rf "$TMPDIR"
+  if [ $tmpkey -ne 0 ]; then
+    rm ~/.ssh/id_sitecopy*
+  fi
 }
 
 cd ~ || exit
 echo "copy site from $SOURCE to $PWD"
-setup_ssh
+if [ $tmpkey -ne 0 ]; then
+  setup_ssh
+fi
 config_read
 dbconf_remote
 dbconf_local
