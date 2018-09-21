@@ -355,7 +355,7 @@ db_transfer() {
 }
 
 cleanup() {
-#  rm -rf "$TMPDIR"
+  rm -rf "$TMPDIR"
   if [ $tmpkey -ne 0 ]; then
     rm ~/.ssh/id_sitecopy*
   fi
