@@ -324,46 +324,55 @@ db_export() {
   ssh -p "$port" "$SOURCE" "mysqldump --defaults-file=.servebolt.cnf $args ; rm .servebolt.cnf" > "$sqlfile"
 }
 
+rewrite_sql() {
+  src=$1
+  dst=$2
+  expr=$(printf "s/DEFINER=\`%s\`@/DEFINER=\`%s\`@/g" "$src" "$dst")
+  echo "$expr"
+  echo "SET FOREIGN_KEY_CHECKS = 0;"
+  sed -e "$expr"
+  echo "SET FOREIGN_KEY_CHECKS = 1;"
+}
+
 db_transfer() {
-sqlfile=$1
-sqlbase=$(basename "$sqlfile")
-if [ ! -z "$SRCDBNAME" ] ; then
-  if [ $pause -eq 1 ] ; then
-    read -rs -n 1 -p "press any key to start databse transfer."
-    echo
+  sqlfile=$1
+  sqlbase=$(basename "$sqlfile")
+  if [ ! -z "$SRCDBNAME" ] ; then
+    if [ $pause -eq 1 ] ; then
+      read -rs -n 1 -p "press any key to start databse transfer."
+      echo
+    fi
+    echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlbase"
+    db_export
   fi
-  echo "exporting database $SRCDBUSER/$SRCDBNAME to $sqlbase"
-  db_export
-fi
-if [ ! -z "$DSTDBNAME" ] ; then
-  echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlbase"
-  if [ -e "$sqlfile" ] ; then
-    # shellcheck disable=SC2016
-    ( [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 0;" ; \
-    sed -e 's/DEFINER=`$SRCDBUSER`@/DEFINER=`$DSTDBUSER`@/g' "$sqlfile" ; \
-    [ "$SITE" = "mg" ] && echo "SET FOREIGN_KEY_CHECKS = 1;" ) | \
-      mysql --defaults-file="$TMPDIR/.servebolt.cnf" -u "$DSTDBUSER" "$DSTDBNAME"
+  if [ ! -z "$DSTDBNAME" ] ; then
+    echo "importing database $DSTDBUSER/$DSTDBNAME from $sqlbase"
+    if [ -e "$sqlfile" ] ; then
+      rewrite_sql "$SRCDBUSER" "$DSTDBUSER" < "$sqlfile" | \
+        mysql --defaults-file="$TMPDIR/.servebolt.cnf" -u "$DSTDBUSER" "$DSTDBNAME"
+    fi
   fi
-fi
-rm -f "$sqlfile"
 }
 
 cleanup() {
-  rm -rf "$TMPDIR"
+#  rm -rf "$TMPDIR"
   if [ $tmpkey -ne 0 ]; then
     rm ~/.ssh/id_sitecopy*
   fi
 }
 
-cd ~ || exit
-echo "copy site from $SOURCE to $PWD"
-if [ $tmpkey -ne 0 ]; then
-  setup_ssh
-fi
-config_read
-dbconf_remote
-dbconf_local
-rsync_public "${exclude[@]}"
-config_write
-db_transfer "$TMPDIR/sitecopy.sql"
-cleanup
+main() {
+  echo "copy site from $SOURCE to $PWD"
+  if [ $tmpkey -ne 0 ]; then
+    setup_ssh
+  fi
+  config_read
+  dbconf_remote
+  dbconf_local
+  rsync_public "${exclude[@]}"
+  config_write
+  db_transfer "$TMPDIR/sitecopy.sql"
+  cleanup
+}
+
+main
