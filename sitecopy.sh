@@ -328,7 +328,6 @@ rewrite_sql() {
   src=$1
   dst=$2
   expr=$(printf "s/DEFINER=\`%s\`@/DEFINER=\`%s\`@/g" "$src" "$dst")
-  echo "$expr"
   echo "SET FOREIGN_KEY_CHECKS = 0;"
   sed -e "$expr"
   echo "SET FOREIGN_KEY_CHECKS = 1;"
