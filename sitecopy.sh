@@ -129,7 +129,7 @@ xsltproc "$TMPDIR/mg-read.xsl" "$1"
 
 wp_read_config() {
   ( echo "<?php" ; grep DB_ "$1" ; cat <<EOF
-echo 'SRCDBPASS="' . DB_PASSWORD . '"' . PHP_EOL;
+echo 'SRCDBPASS="' . str_replace('\$', '\\\$', DB_PASSWORD) . '"' . PHP_EOL;
 echo 'SRCDBUSER="' . DB_USER . '"' . PHP_EOL;
 echo 'SRCDBNAME="' . DB_NAME . '"' . PHP_EOL;
 echo 'SRCDBHOST="' . DB_HOST . '"' . PHP_EOL;
@@ -189,23 +189,25 @@ setup_ssh() {
 
 
 mycfg_create() {
-  echo "[client]"
-  echo "password=$1"
+  echo '[client]'
+  echo -n 'password="'
+  echo -n "$1"
+  echo '"'
 }
 
 dbconf_local() {
   ## guess/ask local db credentials
   if [ ! -z "$DSTDB" ] ; then
-    [ -z "$DSTDBNAME" ] && DSTDBNAME=$DSTDB
-    [ -z "$DSTDBUSER" ] && DSTDBUSER=$DSTDB
+    [ -z "$DSTDBNAME" ] && DSTDBNAME="$DSTDB"
+    [ -z "$DSTDBUSER" ] && DSTDBUSER="$DSTDB"
   fi
   if [ -z "$DSTDBPASS" ] && [ ! -z "$DSTDBNAME" ] ; then
     echo "querying local database information"
     read -re -p "database name [$DSTDBNAME]:" DSTDB
-    [ -z "$DSTDB" ] || DSTDBNAME=$DSTDB
-    [ -z "$DSTDBUSER" ] && DSTDBUSER=$DSTDB
+    [ -z "$DSTDB" ] || DSTDBNAME="$DSTDB"
+    [ -z "$DSTDBUSER" ] && DSTDBUSER="$DSTDB"
     read -re -p "database user [$DSTDBUSER]:" DSTDB
-    [ -z "$DSTDB" ] || DSTDBUSER=$DSTDB
+    [ -z "$DSTDB" ] || DSTDBUSER="$DSTDB"
     read -rs -p "database password for $DSTDBUSER@$DSTDBNAME:" DSTDBPASS
     echo
   fi
@@ -215,17 +217,17 @@ dbconf_local() {
 dbconf_remote() {
   ## guess/ask local db credentials
   if [ ! -z "$SRCDB" ] ; then
-    [ -z "$SRCDBNAME" ] && SRCDBNAME=$SRCDB
-    [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
-    [ -z "$SRCDBHOST" ] && SRCDBHOST=localhost
+    [ -z "$SRCDBNAME" ] && SRCDBNAME="$SRCDB"
+    [ -z "$SRCDBUSER" ] && SRCDBUSER="$SRCDB"
+    [ -z "$SRCDBHOST" ] && SRCDBHOST="localhost"
   fi
   if [ -z "$SRCDBPASS" ] && [ ! -z "$SRCDBNAME" ] ; then
     echo "querying remote database information"
     read -er -p "database name [$SRCDBNAME]:" SRCDB
-    [ -z "$SRCDB" ] || SRCDBNAME=$SRCDB
-    [ -z "$SRCDBUSER" ] && SRCDBUSER=$SRCDB
+    [ -z "$SRCDB" ] || SRCDBNAME="$SRCDB"
+    [ -z "$SRCDBUSER" ] && SRCDBUSER="$SRCDB"
     read -er -p "database user [$SRCDBUSER]:" SRCDB
-    [ -z "$SRCDB" ] || SRCDBUSER=$SRCDB
+    [ -z "$SRCDB" ] || SRCDBUSER="$SRCDB"
     read -sr -p "database password for $SRCDBUSER@$SRCDBNAME:" SRCDBPASS
     echo
   fi
@@ -321,7 +323,7 @@ rsync_public () {
 db_export() {
   args="-h $SRCDBHOST -u $SRCDBUSER $SRCDBNAME"
   # shellcheck disable=SC2029
-  ssh -p "$port" "$SOURCE" "mysqldump --defaults-file=.servebolt.cnf $args ; rm .servebolt.cnf" > "$sqlfile"
+  ssh -p "$port" "$SOURCE" "mysqldump --defaults-file=.servebolt.cnf $args && rm .servebolt.cnf" > "$sqlfile"
 }
 
 rewrite_sql() {
