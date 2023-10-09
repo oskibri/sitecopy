@@ -2,7 +2,7 @@
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
 # Date: 6th of October
 # Author: Oskar Voldbakken Hesle
-# Version 1.1.1
+# Version 1.1.2
 # Dependencies: getopt
 
 pwd="$PWD"
@@ -161,6 +161,7 @@ if [[ ! -f "$HOME/environment.json" && ! -f "$HOME/environment.ini" ]]; then
 else
   [[ -f "$HOME/environment.json" ]] && ENV_FILE="$HOME/environment.json" || ENV_FILE="$HOME/environment.ini"
 fi
+# ^^ TODO: Possible removal of check. Currently only usage is for changing DB password which isn't easy with current API setup.
 
 # Check if normal SSH keys are present
 if [[ ! -f "$HOME/.ssh/id_rsa" || ! -f "$HOME/.ssh/id_rsa.pub" ]]; then
@@ -274,6 +275,7 @@ setLocalDBPassword() {
     echo
   fi
 }
+# ^^ TODO: Restructuring and removal of ENV file check. With current setup it will not be easy to change DB password with API key in environment.ini or json. 
 
 checkLocalDatabaseConnection() {
   export MYSQL_PWD="$LOCAL_DBPASS"
