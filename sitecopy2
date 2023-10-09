@@ -1,12 +1,12 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 6th of October
+# Date: 9th of October
 # Author: Oskar Voldbakken Hesle
-# Version 1.1.2
+# Version 1.1.3
 # Dependencies: getopt
 
 pwd="$PWD"
-trap "cd $pwd; ssh-agent -k &>/dev/null; tput cnorm; stty sane; rm -rf $HOME/tmp/exclude_list.txt 2>/dev/null" EXIT SIGINT
+trap "cd $pwd; ssh-agent -k &>/dev/null; tput cnorm; stty sane; rm -rf $HOME/tmp/{custom_,}exclude_list.txt 2>/dev/null" EXIT SIGINT
 cd "$HOME" || exit 10
 
 SSH_PRIVKEY="$HOME/.ssh/id_rsa"
@@ -316,7 +316,7 @@ transferFiles() {
 
 transferDatabase() {
   export MYSQL_PWD="$LOCAL_DBPASS"
-  ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "export MYSQL_PWD='$REMOTE_DBPASS' && mysqldump --single-transaction -u $REMOTE_DBUSER $REMOTE_DBNAME" | pv -ci 0.1 -N"Database Transfer" | sed 's/DEFINER=[^*]*\*/\*/g' | mysql -u "$LOCAL_DBNAME" "$LOCAL_DBNAME" &
+  ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "export MYSQL_PWD='$REMOTE_DBPASS' && mysqldump --single-transaction -u $REMOTE_DBUSER $REMOTE_DBNAME" | pv -ci 0.1 -N"Database Transfer" | sed 's/\sDEFINER=`[^`]*`@`[^`]*`//g' | mysql -u "$LOCAL_DBNAME" "$LOCAL_DBNAME" &
 }
 
 updateLocalConfig() {
