@@ -1,3 +1,6 @@
+* Wed 11 Oct Oskar VH <oskar@servebolt.com> - 1.1.7
+- Hotfix changed sed back to perl for config DB pass overwrite for working substition
+
 * Wed 11 Oct Oskar VH <oskar@servebolt.com> - 1.1.6
 - Added changelog
 - Duplicate DB name/user string after local config overwrite fix
