@@ -2,7 +2,7 @@
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
 # Date: 11th of October, 2023
 # Author: Oskar Voldbakken Hesle
-# Version 1.1.8
+# Version 1.1.9
 # Dependencies: getopt
 
 pwd="$PWD"
@@ -10,7 +10,7 @@ interupt() {
   cd "$pwd"
   ssh-agent -k &>/dev/null
   tput cnorm
-  rm -rf "$HOME/tmp/{custom_,}exclude_list.txt" 2>/dev/null
+  rm -rf "$HOME"/tmp/{custom_,}exclude_list.txt 2>/dev/null
   stty sane
   echo
   exit 9
@@ -42,7 +42,7 @@ DOCUMENT_ROOT=
 
 SOURCE_DIRECTORY=
 DESTINATION_DIRECTORY="$HOME"
-EXCLUDE_LIST=("sitecopy" "/.*" "/environment.*" "/.ssh/id_rsa*" "/logs" "/tmp" "/php-session" "/php-upload")
+EXCLUDE_LIST=(/.{vim*,wp-cli,bash*,less*,local,mysql*} "/environment.*" "/.ssh/id_rsa*" "/logs" "/tmp" "/php-session" "/php-upload")
 
 # Check NGL or legacy structure
 if [[ $(awk -F/ '{print $2}' <<< "$PWD") == 'cust' ]]; then
