@@ -1,8 +1,8 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 8th of November, 2023
+# Date: 9th of November, 2023
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.0
+# Version 1.2.1
 # Dependencies: getopt
 
 pwd="$PWD"
@@ -167,14 +167,6 @@ elif [[ ! "$LOCAL_DBNAME" ]]; then
   NODB="TRUE"
 fi
 
-# Check for environment files
-if [[ ! -f "$HOME/environment.json" && ! -f "$HOME/environment.ini" ]]; then
-  printf "\033[1;33mWarning:\033[0m Check that either environment.json or environment.ini is available for better logic\n" >&2
-else
-  [[ -f "$HOME/environment.json" ]] && ENV_FILE="$HOME/environment.json" || ENV_FILE="$HOME/environment.ini"
-fi
-# ^^ TODO: Possible removal of check. Currently only usage is for changing DB password which isn't easy with current API setup.
-
 # Check if normal SSH keys are present
 if [[ ! -f "$HOME/.ssh/id_rsa" || ! -f "$HOME/.ssh/id_rsa.pub" ]]; then
   mkdir -p "$HOME/.ssh"
@@ -185,10 +177,15 @@ if [[ ! -f "$HOME/.ssh/id_rsa" || ! -f "$HOME/.ssh/id_rsa.pub" ]]; then
   ssh-add "$SSH_PRIVKEY" &>/dev/null
 fi
 
-# Add SSH pub key to remote host if not done already
+# Check if SSH public key is added to remote host, otherwise add them with SSH password. Exit if port / credentials are wrong
 if ! ssh -qo PasswordAuthentication=no -i "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "exit" &>/dev/null; then
   echo "Please enter the remote SSH user password. This will only be asked once"
-  ssh-copy-id -p "$SSHPORT" "$SSHUSER@$SSHHOST" &>/dev/null || exit 9
+  if ! ssh-copy-id -p "$SSHPORT" "$SSHUSER@$SSHHOST" &>/dev/null; then
+    tput cuu1
+    tput el
+    printf "\033[1;31mError:\033[0m Likely wrong port number. Double check your SSH credentials. Exiting..."
+    exit 9
+  fi
 fi
 
 
@@ -240,14 +237,14 @@ parseConfig() {
 
     local index=
     for index in "${!dbCredentialsArr[@]}"; do
-      [[ ${dbCredentialsArr[$index]} =~ DB_NAME ]] && \
-        REMOTE_DBNAME=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]}) # | sed -E "s/^['\"](.*)['\"].*$/\1/")
-      [[ ${dbCredentialsArr[$index]} =~ DB_USER ]] && \
-        REMOTE_DBUSER=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]}) # | sed -E "s/^['\"](.*)['\"].*$/\1/")
-      [[ ${dbCredentialsArr[$index]} =~ DB_HOST ]] && \
-        REMOTE_DBHOST=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]}) # | sed -E "s/^['\"](.*)['\"].*$/\1/")
-      [[ ${dbCredentialsArr[$index]} =~ DB_PASSWORD ]] && \
-        REMOTE_DBPASS=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]}) # | sed -E "s/^['\"](.*)['\"].*$/\1/")
+      [[ ! $REMOTE_DBNAME && ${dbCredentialsArr[$index]} =~ DB_NAME ]] && \
+        REMOTE_DBNAME=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]}) 
+      [[ ! $REMOTE_DBUSER && ${dbCredentialsArr[$index]} =~ DB_USER ]] && \
+        REMOTE_DBUSER=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]})
+      [[ ! $REMOTE_DBHOST && ${dbCredentialsArr[$index]} =~ DB_HOST ]] && \
+        REMOTE_DBHOST=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]})
+      [[ ! $REMOTE_DBPASS && ${dbCredentialsArr[$index]} =~ DB_PASSWORD ]] && \
+        REMOTE_DBPASS=$(tr -d ' ' <<< ${dbCredentialsArr[$index+1]})
     done
   elif [[ "$CONFIG_FILE" == 'env.php' ]]; then
     local dbCredentialsArr=( $(ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "\
@@ -258,36 +255,29 @@ parseConfig() {
 
     local index=
     for index in "${!dbCredentialsArr[@]}"; do
-      [[ ${dbCredentialsArr[$index]} =~ ^dbname$ ]]   && REMOTE_DBNAME=${dbCredentialsArr[$index+1]}
-      [[ ${dbCredentialsArr[$index]} =~ ^username$ ]] && REMOTE_DBUSER=${dbCredentialsArr[$index+1]}
-      [[ ${dbCredentialsArr[$index]} =~ ^host$ ]]     && REMOTE_DBHOST=${dbCredentialsArr[$index+1]}
-      [[ ${dbCredentialsArr[$index]} =~ ^password$ ]] && REMOTE_DBPASS=${dbCredentialsArr[$index+1]}
+      [[ ! $REMOTE_DBNAME && ${dbCredentialsArr[$index]} =~ ^dbname$ ]]   && REMOTE_DBNAME=${dbCredentialsArr[$index+1]}
+      [[ ! $REMOTE_DBUSER && ${dbCredentialsArr[$index]} =~ ^username$ ]] && REMOTE_DBUSER=${dbCredentialsArr[$index+1]}
+      [[ ! $REMOTE_DBHOST && ${dbCredentialsArr[$index]} =~ ^host$ ]]     && REMOTE_DBHOST=${dbCredentialsArr[$index+1]}
+      [[ ! $REMOTE_DBPASS && ${dbCredentialsArr[$index]} =~ ^password$ ]] && REMOTE_DBPASS=${dbCredentialsArr[$index+1]}
     done
   fi
 }
 
 checkRemoteDatabaseConnection() {
   if ! ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "export MYSQL_PWD='$REMOTE_DBPASS' && mysql -h$REMOTE_DBHOST -u$REMOTE_DBUSER $REMOTE_DBNAME -e 'exit' &>/dev/null"; then
-    printf "\033[1;31mError:\033[0m Remote database connection failed. Try setting remote database credentials explicity\n" >&2
+    printf "\033[1;31mError:\033[0m Remote database connection failed. Double check your remote DB credentials or set them explicitly\n" >&2
     NODB="TRUE"
   fi
 }
 
 setLocalDBPassword() {
   [[ "$NODB" ]] && return 1
-  if [[ ! -f "$ENV_FILE" && ! "$LOCAL_DBPASS" ]]; then
-    printf "\033[1;31mError:\033[0m No way to import database. Set local database password explicity, or enable environment files\n" >&2
-    exit 2
-  elif [[ ! "$LOCAL_DBPASS" ]]; then
-    # local apiKey=$(awk -F'[=:]' '/api_key/ {print $2}' "$ENV_FILE" | tr -d ' ,"')
-    # local envID=$(awk -F'[=:]' '/[^bolt_]id/ {print $2}' "$ENV_FILE" | tr -d ' ,"')
-    # printf "\033[1;31mError:\033[0m Updating database password via API is not currently implemented.\nPlease enter local database password for \033[1;34m%s\033[0m: " "$LOCAL_DBNAME" >&2
+  if [[ ! "$LOCAL_DBPASS" ]]; then
     printf "Please enter local database password for \033[1;34m%s\033[0m. Password will not be shown: " "$LOCAL_DBNAME"
-    read -s LOCAL_DBPASS
+    read -s LOCAL_DBPASS || exit 
     echo
   fi
 }
-# ^^ TODO: Restructuring and removal of ENV file check. With current setup it will not be easy to change DB password with API key in environment.ini or json. 
 
 checkLocalDatabaseConnection() {
   export MYSQL_PWD="$LOCAL_DBPASS"
@@ -350,12 +340,12 @@ updateLocalConfig() {
 
 removeEnvPathSBO() {
   [[ $CONFIG_FILE != 'wp-config.php' ]] && return 1
-  export MYSQL_PWD="$LOCAL_DBPASS"
   [[ ! $TABLE_PREFIX ]] && TABLE_PREFIX=$(awk -F'[\042\047]' '/table_prefix/ {print $2}' $DESTINATION_DIRECTORY/$CONFIG_FILE)
   mysql -u "$LOCAL_DBNAME" "$LOCAL_DBNAME" -se "UPDATE ${TABLE_PREFIX}options SET option_value = '' WHERE option_name = 'servebolt_env_file_path'" 2>/dev/null
 }
 
-# MAIN
+# ====== MAIN ======= #
+
 mkdir -p "$HOME/tmp"
 tr ' ' '\n' <<< "${EXCLUDE_LIST[@]}" > "$HOME/tmp/exclude_list.txt"
 tr ' ' '\n' <<< "${CUSTOM_EXCLUDE_LIST[@]}" > "$HOME/tmp/custom_exclude_list.txt"
