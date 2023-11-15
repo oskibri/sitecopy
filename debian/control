@@ -1,0 +1,20 @@
+Source: sitecopy
+Section: admin
+Priority: optional
+Maintainer: Osker Voldbakken Hesle <oskar@servebolt.com>
+Uploaders:
+ André Tomt <andret@servebolt.com>,
+Build-Depends:
+ debhelper-compat (= 13),
+Standards-Version: 4.6.1
+Vcs-Git: https://gitlab.r99.no/tools/sitecopy.git
+Vcs-Browser: https://gitlab.r99.no/tools/sitecopy/
+Homepage: https://gitlab.r99.no/tools/sitecopy/
+Rules-Requires-Root: no
+
+Package: bolt-sitecopy
+Architecture: all
+Depends:
+ bash,
+ ${misc:Depends},
+Description: Servebolt site copy script
