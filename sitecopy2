@@ -85,8 +85,8 @@ EOF
 }
 
 OPTS=$(getopt -n "$0" \
-  -o s:d:e:u:h:p:D:P:ot: \
-  -l help,src:,dest:,exclude:,user:,host:,port:,local-dbname:,local-dbpass:,remote-dbname:,remote-dbuser:,remote-dbhost:,remote-dbpass:,only-docroot,table-prefix: -- "$@")
+  -o s:d:e:u:h:p:D:P:t:ko \
+  -l help,src:,dest:,exclude:,user:,host:,port:,local-dbname:,local-dbpass:,remote-dbname:,remote-dbuser:,remote-dbhost:,remote-dbpass:,only-docroot,type:,key -- "$@")
 eval set -- "$OPTS"
 
 while true; do
@@ -111,13 +111,13 @@ while true; do
     -h|--host)
       SSHHOST="$2"
       shift 2 ;;
-    -p|--port)
+    -P|--port)
       SSHPORT="$2"
       shift 2 ;;
     -D|--local-dbname)
       LOCAL_DBNAME="$2"
       shift 2 ;;
-    -P|--local-dbpass)
+    -p|--local-dbpass)
       LOCAL_DBPASS="$2"
       shift 2 ;;
     --remote-dbname)
@@ -135,9 +135,12 @@ while true; do
     -o|--only-docroot)
       ONLY_DOCROOT="TRUE"
       shift ;;
-    -t|--table-prefix)
-      TABLE_PREFIX="$2"
+    -t|--type)
+      # For old sitecopy backwards compatibility
       shift 2 ;;
+    -k|--key)
+      # For old sitecopy backwards compatibility
+      shift ;;
     --)
       shift 1
       while [[ "$@" ]]; do

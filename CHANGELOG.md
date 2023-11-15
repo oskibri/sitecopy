@@ -1,3 +1,6 @@
+### Wed 15 Nov Oskar VH <oskar@servebolt.com> - `v1.2.2`
+  - Added option -t and -k for sitecopy1 backwards compatibility
+
 ### Thu 09 Nov Oskar VH <oskar@servebolt.com> - `v1.2.1`
   - Fixed checking if remote DB creds are set by user before auto checking for creds in config file
   - Removed checks for env files and usage of SB API
