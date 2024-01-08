@@ -1,3 +1,6 @@
+### Mon 8 Jan Oskar VH <oskar@servebolt.com> - `v1.2.3`
+  - Made $SSHUSER check contain periods in the if statement
+
 ### Wed 15 Nov Oskar VH <oskar@servebolt.com> - `v1.2.2`
   - Added option -t and -k for sitecopy1 backwards compatibility
 

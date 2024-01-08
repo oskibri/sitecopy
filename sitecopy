@@ -1,8 +1,8 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 9th of November, 2023
+# Date: 8th of January, 2024
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.1
+# Version 1.2.3
 # Dependencies: getopt
 
 pwd="$PWD"
@@ -144,7 +144,7 @@ while true; do
     --)
       shift 1
       while [[ "$@" ]]; do
-        if [[ "$1" =~ ^[A-Za-z0-9_-]+@[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
+        if [[ "$1" =~ ^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]]; then
           [[ ! "$SSHUSER" ]] && SSHUSER=$(awk -F'@'    '{print $1}' <<< "$1")
           [[ ! "$SSHHOST" ]] && SSHHOST=$(awk -F'[@:]' '{print $2}' <<< "$1")
           [[ ! "$SSHPORT" ]] && SSHPORT=$(awk -F':'    '{print $2}' <<< "$1")
