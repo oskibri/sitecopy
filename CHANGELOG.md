@@ -1,3 +1,10 @@
+### Thu 29 Feb Oskar VH <oskar@servebolt.com> - `v1.2.4`
+  - Mysql credentials are now stored in a .cnf file for better security
+  - Removed default migration of $HOME dir if not $DOCUMENT_ROOT is specified or found
+  - Removed the --only-root and -o flag
+  - For finer control on source and destination directory, --src and --dest have to be used
+  - If CMS config file is automatically found and --src isnt specified, sitecopy will exit instead of continuing
+
 ### Mon 8 Jan Oskar VH <oskar@servebolt.com> - `v1.2.3`
   - Made $SSHUSER check contain periods in the if statement
 

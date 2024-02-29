@@ -1,47 +1,32 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 8th of January, 2024
+# Date: 29th of February, 2024
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.3
-# Dependencies: getopt
+# Version 1.2.4
 
 pwd="$PWD"
 interupt() {
   cd "$pwd"
+  ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "[[ -d sbtemp ]] && rm -rf sbtemp"
   ssh-agent -k &>/dev/null
-  tput cnorm
   rm -rf "$HOME"/tmp/{custom_,}exclude_list.txt 2>/dev/null
-  stty sane
+  rm -rf "$HOME/tmp/local_db.cnf" 2>/dev/null
   echo
   exit 9
 }
 trap 'interupt' EXIT SIGINT
 cd "$HOME" || exit 10
 
+SBTEMPDIR="sbtemp"
+SBDBCNF="$SBTEMPDIR/db.cnf"
 SSH_PRIVKEY="$HOME/.ssh/id_rsa"
 SSH_PUBKEY="$HOME/.ssh/id_rsa.pub"
 
-SSHUSER=
-SSHHOST=
 SSHPORT=22
-
-LOCAL_DBNAME=
-LOCAL_DBUSER=
 LOCAL_DBHOST="localhost"
-LOCAL_DBPASS=
-
-REMOTE_DBNAME=
-REMOTE_DBUSER=
 REMOTE_DBHOST="localhost"
-REMOTE_DBPASS=
-
-NODB=
-CONFIG_PATH=
-CONFIG_FILE=
-DOCUMENT_ROOT=
-
-SOURCE_DIRECTORY=
 DESTINATION_DIRECTORY="$HOME"
+SOURCE_DIRECTORY='$HOME'
 EXCLUDE_LIST=(/.{vim*,wp-cli,bash*,less*,local,mysql*} /environment.{json,ini} "/.ssh/id_rsa*" "/logs" "/tmp" "/php-session" "/php-upload")
 
 # Check NGL or legacy structure
@@ -80,13 +65,12 @@ $(printf "\033[1;32mOptions:\033[0m")
       --remote-dbuser=<USER>    Set the remote database user. If not set, sitecopy will try to find it in a remote config file
       --remote-dbhost=<HOST>    Set the remote database host. If not set, sitecopy will try to find it in a remote config file
       --remote-dbpass=<PASS>    Set the remote database pass. If not set, sitecopy will try to find it in a remote config file
-  -o, --only-docroot            Enable to only transfer what is in remote document root and drop transfer of anything else
 EOF
 }
 
 OPTS=$(getopt -n "$0" \
-  -o s:d:e:u:h:p:D:P:t:ko \
-  -l help,src:,dest:,exclude:,user:,host:,port:,local-dbname:,local-dbpass:,remote-dbname:,remote-dbuser:,remote-dbhost:,remote-dbpass:,only-docroot,type:,key -- "$@")
+  -o s:d:e:u:h:p:D:P:t:k \
+  -l help,src:,dest:,exclude:,user:,host:,port:,local-dbname:,local-dbpass:,remote-dbname:,remote-dbuser:,remote-dbhost:,remote-dbpass:,type:,key -- "$@")
 eval set -- "$OPTS"
 
 while true; do
@@ -132,9 +116,6 @@ while true; do
     --remote-dbpass)
       REMOTE_DBPASS="$2"
       shift 2 ;;
-    -o|--only-docroot)
-      ONLY_DOCROOT="TRUE"
-      shift ;;
     -t|--type)
       # For old sitecopy backwards compatibility
       shift 2 ;;
@@ -195,7 +176,7 @@ fi
 getConfigFile() {
   local num=0
   local configArr=( $(ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" \
-    'find $HOME -type d -name "wp-content" -prune -o \
+    'find '$SOURCE_DIRECTORY' -type d -name "wp-content" -prune -o \
     \( -name "wp-config.php" -o -name ".env" -o -name "env.php" \) -print | sort -r') )
   local homeDir=$(ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" 'echo $HOME')
 
@@ -267,7 +248,7 @@ parseConfig() {
 }
 
 checkRemoteDatabaseConnection() {
-  if ! ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "export MYSQL_PWD='$REMOTE_DBPASS' && mysql -h$REMOTE_DBHOST -u$REMOTE_DBUSER $REMOTE_DBNAME -e 'exit' &>/dev/null"; then
+  if ! ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "mkdir $SBTEMPDIR && printf '[client]\nhost=%s\nuser=%s\npassword=%s\n' $REMOTE_DBHOST $REMOTE_DBUSER '$REMOTE_DBPASS' > $SBDBCNF && chmod 0600 $SBDBCNF && mysql --defaults-file=$SBDBCNF $REMOTE_DBNAME -e 'exit' &>/dev/null"; then
     printf "\033[1;31mError:\033[0m Remote database connection failed. Double check your remote DB credentials or set them explicitly\n" >&2
     NODB="TRUE"
   fi
@@ -283,8 +264,12 @@ setLocalDBPassword() {
 }
 
 checkLocalDatabaseConnection() {
-  export MYSQL_PWD="$LOCAL_DBPASS"
-  if ! mysql -u"$LOCAL_DBNAME" "$LOCAL_DBNAME" -e 'exit' &>/dev/null; then
+  [[ ! -d "$HOME/tmp" ]] && mkdir "$HOME/tmp"
+
+  printf "[client]\nhost=localhost\nuser=%s\npassword=%s\n" "$LOCAL_DBNAME" "$LOCAL_DBPASS" > "$HOME/tmp/local_db.cnf"
+  chmod 0600 "$HOME/tmp/local_db.cnf"
+
+  if ! mysql --defaults-file="$HOME/tmp/local_db.cnf" "$LOCAL_DBNAME" -e 'exit' &>/dev/null; then
     printf "\033[1;31mError:\033[0m Local database connection failed. Recheck you database credentials\n" >&2
     NODB="TRUE"
   fi
@@ -296,7 +281,12 @@ checkDocumentRoot() {
   if [[ "$CONFIG_FILE" == "wp-config.php" ]]; then
     local WPRootDirs=$(ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "find $CONFIG_PATH -maxdepth 1 -type d \( -name "wp-includes" -o -name "wp-admin" \) -print 2>/dev/null" | wc -l)
 
-    [[ ! "$WPRootDirs" -eq 2 ]] && printf "\033[1;33mWarning:\033[0m Remote document root couldn't be established because of non standard WP structure\nWill copy everything as is to destination directory\n" >&2 && return 1
+    if [[ ! "$WPRootDirs" -eq 2 ]]; then
+		printf "\033[1;33mWarning:\033[0m Remote document root couldn't be established because of non standard WP structure\nManually select the source directory with -s or --src\n" >&2 
+		usage
+		exit 1
+	fi
+
 
     DOCUMENT_ROOT="$CONFIG_PATH"
     LOCAL_CONFIG_PATH=${CONFIG_PATH/$remoteHome/}
@@ -312,16 +302,21 @@ transferFiles() {
   elif [[ "$DOCUMENT_ROOT" ]]; then
     # Rsync over the document root and place it in local document root
     rsync -ave "ssh -qi $SSH_PRIVKEY -p $SSHPORT" --exclude-from="$HOME/tmp/custom_exclude_list.txt" "$SSHUSER@$SSHHOST:$DOCUMENT_ROOT/" "$DESTINATION_DIRECTORY" | pv -cli 0.1 -N"Files Transferred" >/dev/null &
+
     # Rsync over non standard files and directories from remote user root
-    [[ ! "$ONLY_DOCROOT" ]] && rsync -ae "ssh -qi $SSH_PRIVKEY -p $SSHPORT" --exclude-from="$HOME/tmp/exclude_list.txt" --exclude="/$(basename $DOCUMENT_ROOT)" "$SSHUSER@$SSHHOST:$SOURCE_DIRECTORY" "$HOME" >/dev/null &
+    #[[ ! "$ONLY_DOCROOT" ]] && rsync -ae "ssh -qi $SSH_PRIVKEY -p $SSHPORT" --exclude-from="$HOME/tmp/exclude_list.txt" --exclude="/$(basename $DOCUMENT_ROOT)" "$SSHUSER@$SSHHOST:$SOURCE_DIRECTORY" "$HOME" >/dev/null &
+
   else
     rsync -ave "ssh -qi $SSH_PRIVKEY -p $SSHPORT" --exclude-from="$HOME/tmp/exclude_list.txt" "$SSHUSER@$SSHHOST:$SOURCE_DIRECTORY" "$DESTINATION_DIRECTORY" | pv -cli 0.1 -N"Files Transferred" >/dev/null &
   fi
 }
 
 transferDatabase() {
-  export MYSQL_PWD="$LOCAL_DBPASS"
-  ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "export MYSQL_PWD='$REMOTE_DBPASS' && mysqldump --single-transaction -u $REMOTE_DBUSER $REMOTE_DBNAME" | pv -Wci 0.1 -N"Database Transfer" | sed 's/\sDEFINER=`[^`]*`@`[^`]*`//g' | mysql -u "$LOCAL_DBNAME" "$LOCAL_DBNAME" &
+  #export MYSQL_PWD="$LOCAL_DBPASS"
+
+  ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "mysqldump --defaults-file=$SBDBCNF --single-transaction $REMOTE_DBNAME" | pv -Wci 0.1 -N"Database Transfer" | sed 's/\sDEFINER=`[^`]*`@`[^`]*`//g' | mysql --defaults-file="$HOME/tmp/local_db.cnf" "$LOCAL_DBNAME" &
+
+  #ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "export MYSQL_PWD='$REMOTE_DBPASS' && mysqldump --single-transaction -u $REMOTE_DBUSER $REMOTE_DBNAME" | pv -Wci 0.1 -N"Database Transfer" | sed 's/\sDEFINER=`[^`]*`@`[^`]*`//g' | mysql -u "$LOCAL_DBNAME" "$LOCAL_DBNAME" &
 }
 
 updateLocalConfig() {
@@ -362,12 +357,10 @@ checkDocumentRoot
 echo
 
 printf "\033[1;32mDoing Transfer...\033[0m\n"
-tput civis
 transferFiles
 sleep .1
 [[ ! "$NODB" ]] && transferDatabase
 wait
-tput cnorm
 
 updateLocalConfig
 [[ ! "$NODB" ]] && removeEnvPathSBO
