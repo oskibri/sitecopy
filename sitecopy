@@ -52,11 +52,11 @@ $(printf "\033[1;32mEXAMPLE:\033[0m")
 
 $(printf "\033[1;32mOPTIONS:\033[0m")
   -?, --help                  Show this
-  -s, --src=<DIRECTORY>       Choose which directory sitecopy should copy the files from
+  -s, --src=<DIRECTORY>       Choose which remote directory sitecopy should copy the files from
                               Default is remote SSH user's home directory
 
-  -d, --dest=<DIRECTORY>      Choose which directory sitecopy should place the copied files to
-                              Default is $(if [[ -f "$HOME/environment.json" ]]; then jq -r .public_dir "$HOME/environment.json"; elif [[ -f "$HOME/environment.ini" ]]; then awk -F= '/public_dir/ {print $2}' "$HOME/environment.ini"; else [[ "$SERVER" == "cust" ]] && printf "~/site/public" || printf "~/public"; fi)
+  -d, --dest=<DIRECTORY>      Choose which local directory sitecopy should copy the files to
+                              Default is your $(printf "\33[1;34m%s\33[0m" $(if [[ -f "$HOME/environment.json" ]]; then jq -r .public_dir "$HOME/environment.json"; elif [[ -f "$HOME/environment.ini" ]]; then awk -F= '/public_dir/ {print $2}' "$HOME/environment.ini"; else [[ "$SERVER" == "cust" ]] && printf "~/site/public" || printf "~/public"; fi)) directory
 
   -e, --exclude=<LIST>        Set a list of directories and/or files to exclude from the copy.
                               List must be separated by commas (file1,file2,fileN)
