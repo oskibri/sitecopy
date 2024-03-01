@@ -1,3 +1,6 @@
+### Fri 1 Mar Oskar VH <oskar@servebolt.com> - `v1.2.6`
+  - Hotfix for help page always showing
+
 ### Fri 1 Mar Oskar VH <oskar@servebolt.com> - `v1.2.5`
   - Updated trap function to check if remove .cnf file has been added before removing
   - If ~/site and/or ~/site/public doesnt exist, create them
