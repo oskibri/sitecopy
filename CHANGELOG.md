@@ -1,3 +1,9 @@
+### Fri 1 Mar Oskar VH <oskar@servebolt.com> - `v1.2.5`
+  - Updated trap function to check if remove .cnf file has been added before removing
+  - If ~/site and/or ~/site/public doesnt exist, create them
+  - If destination env is SL8, update public dir perms to 0710
+  - Updated help page to reflect changes in flags (long overdue)
+
 ### Thu 29 Feb Oskar VH <oskar@servebolt.com> - `v1.2.4`
   - Mysql credentials are now stored in a .cnf file for better security
   - Removed default migration of $HOME dir if not $DOCUMENT_ROOT is specified or found

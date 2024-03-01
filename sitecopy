@@ -1,17 +1,16 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 29th of February, 2024
+# Date: 1th of Mar, 2024
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.4
+# Version 1.2.5
 
 pwd="$PWD"
 interupt() {
-  cd "$pwd"
-  ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "[[ -d sbtemp ]] && rm -rf sbtemp"
+  cd "$PWD"
+  [[ $REMOTE_SBCNF ]] && ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "[[ -d sbtemp ]] && rm -rf sbtemp"
   ssh-agent -k &>/dev/null
   rm -rf "$HOME"/tmp/{custom_,}exclude_list.txt 2>/dev/null
   rm -rf "$HOME/tmp/local_db.cnf" 2>/dev/null
-  echo
   exit 9
 }
 trap 'interupt' EXIT SIGINT
@@ -29,7 +28,7 @@ DESTINATION_DIRECTORY="$HOME"
 SOURCE_DIRECTORY='$HOME'
 EXCLUDE_LIST=(/.{vim*,wp-cli,bash*,less*,local,mysql*} /environment.{json,ini} "/.ssh/id_rsa*" "/logs" "/tmp" "/php-session" "/php-upload")
 
-# Check NGL or legacy structure
+# Check if server is SL7 or SL8
 if [[ $(awk -F/ '{print $2}' <<< "$PWD") == 'cust' ]]; then
   DESTINATION_DIRECTORY="$HOME/site/public"
   NGL="TRUE"
@@ -39,43 +38,55 @@ fi
 
 usage() {
 cat << EOF
-$(printf "\033[1;32mInfo:\033[0m")
+$(printf "\033[1;32mINFO:\033[0m")
   Sitecopy. A script to copy one site to a Servebolt site. Excellent from fetching a site externally to setting up a staging site
   Simply provide the script with a remote user and host + the local database name and the script will try to resolve the rest
   More explicit options can also be set for finer control
-$(printf "\033[1;32mUsage:\033[0m")
+
+$(printf "\033[1;32mUSAGE:\033[0m")
   bash $0 [OPTIONS] <USER@HOSTNAME> <LOCAL_DATABASE>
-$(printf "\033[1;32mExample:\033[0m")
+
+$(printf "\033[1;32mEXAMPLE:\033[0m")
   #1: bash $0 boltuser_1234@servebolt.cloud localdb
   #2: bash $0 -u "boltuser_1234" -h "servebolt.cloud" "localdb" --port=1022 --exclude="*.jpg,path/to/exclude"
-$(printf "\033[1;32mOptions:\033[0m")
-      --help                    Show this
-  -s, --src=<DIRECTORY>         Choose which directory sitecopy should copy the files from
-                                  Default is remote SSH user's home directory
-  -d, --dest=<DIRECTORY>        Choose which directory sitecopy should place the copied files to
-                                  Default is $(if [[ -f "$HOME/environment.json" ]]; then jq -r .public_dir "$HOME/environment.json"; elif [[ -f "$HOME/environment.ini" ]]; then awk -F= '/public_dir/ {print $2}' "$HOME/environment.ini"; else [[ "$SERVER" == "cust" ]] && printf "~/site/public" || printf "~/public"; fi)
-  -e, --exclude=<LIST>          Set a list of directories and/or files to exclude from the copy.
-                                  List must be separated by commas (file1,file2,fileN)
-  -D, --local-dbname=<NAME>     Set the local database name
-  -P, --local-dbpass=<PASS>     Set the local database password. If not set, sitecopy will try to update the password (WIP)
-  -u, --user=<REMOTE_USER>      Set the remote SSH username
-  -h, --host=<REMOTE_HOST>      Set the remote SSH hostname
-  -p, --port=<PORT_NUM>         Set the remote SSH port number. Default is '22'
-      --remote-dbname=<NAME>    set the remote database name. If not set, sitecopy will try to find it in a remote config file
-      --remote-dbuser=<USER>    Set the remote database user. If not set, sitecopy will try to find it in a remote config file
-      --remote-dbhost=<HOST>    Set the remote database host. If not set, sitecopy will try to find it in a remote config file
-      --remote-dbpass=<PASS>    Set the remote database pass. If not set, sitecopy will try to find it in a remote config file
+
+$(printf "\033[1;32mOPTIONS:\033[0m")
+  -?, --help                  Show this
+  -s, --src=<DIRECTORY>       Choose which directory sitecopy should copy the files from
+                              Default is remote SSH user's home directory
+
+  -d, --dest=<DIRECTORY>      Choose which directory sitecopy should place the copied files to
+                              Default is $(if [[ -f "$HOME/environment.json" ]]; then jq -r .public_dir "$HOME/environment.json"; elif [[ -f "$HOME/environment.ini" ]]; then awk -F= '/public_dir/ {print $2}' "$HOME/environment.ini"; else [[ "$SERVER" == "cust" ]] && printf "~/site/public" || printf "~/public"; fi)
+
+  -e, --exclude=<LIST>        Set a list of directories and/or files to exclude from the copy.
+                              List must be separated by commas (file1,file2,fileN)
+
+$(printf "\033[1;32mSSH:\033[0m")
+  -u, --user=<REMOTE_USER>    Set the remote SSH username
+  -h, --host=<REMOTE_HOST>    Set the remote SSH hostname
+  -P, --port=<PORT_NUM>       Set the remote SSH port number. Default is '22'
+
+$(printf "\033[1;32mRemote database:\033[0m")
+      --remote-name=<NAME>    Set the remote database name. If not set, sitecopy will try to find it in a remote config file
+      --remote-user=<USER>    Set the remote database user. If not set, sitecopy will try to find it in a remote config file
+      --remote-host=<HOST>    Set the remote database host. If not set, sitecopy will try to find it in a remote config file
+      --remote-pass=<PASS>    Set the remote database pass. If not set, sitecopy will try to find it in a remote config file
+
+$(printf "\033[1;32mLocal database:\033[0m")
+  -l, --local-name=<NAME>     Set the local database name
+  -p, --local-pass=<PASS>     Set the local database password. If not set, sitecopy will try to update the password (WIP)
+
 EOF
 }
 
 OPTS=$(getopt -n "$0" \
-  -o s:d:e:u:h:p:D:P:t:k \
-  -l help,src:,dest:,exclude:,user:,host:,port:,local-dbname:,local-dbpass:,remote-dbname:,remote-dbuser:,remote-dbhost:,remote-dbpass:,type:,key -- "$@")
+  -o ?s:d:e:u:h:P:l:p:t:k \
+  -l help,src:,dest:,exclude:,user:,host:,port:,remote-name:,remote-user:,remote-host:,remote-pass:,local-name:,local-pass:,type:,key -- "$@")
 eval set -- "$OPTS"
 
 while true; do
   case "$1" in
-    --help)
+    -?|--help)
       usage
       exit 0 ;;
     -s|--src)
@@ -98,30 +109,32 @@ while true; do
     -P|--port)
       SSHPORT="$2"
       shift 2 ;;
-    -D|--local-dbname)
-      LOCAL_DBNAME="$2"
-      shift 2 ;;
-    -p|--local-dbpass)
-      LOCAL_DBPASS="$2"
-      shift 2 ;;
-    --remote-dbname)
+    --remote-name)
       REMOTE_DBNAME="$2"
       shift 2 ;;
-    --remote-dbuser)
+    --remote-user)
       REMOTE_DBUSER="$2"
       shift 2 ;;
-    --remote-dbhost)
+    --remote-host)
       REMOTE_DBHOST="$2"
       shift 2 ;;
-    --remote-dbpass)
+    --remote-pass)
       REMOTE_DBPASS="$2"
       shift 2 ;;
+    -l|--local-name)
+      LOCAL_DBNAME="$2"
+      shift 2 ;;
+    -p|--local-pass)
+      LOCAL_DBPASS="$2"
+      shift 2 ;;
+
     -t|--type)
-      # For old sitecopy backwards compatibility
+      # For old sitecopy backwards compatibility. Don't do anything
       shift 2 ;;
     -k|--key)
-      # For old sitecopy backwards compatibility
+      # For old sitecopy backwards compatibility. Don't do anything
       shift ;;
+
     --)
       shift 1
       while [[ "$@" ]]; do
@@ -172,6 +185,9 @@ if ! ssh -qo PasswordAuthentication=no -i "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER
   fi
 fi
 
+
+
+# ====== MAIN FUNCTIONS ======= #
 
 getConfigFile() {
   local num=0
@@ -251,6 +267,8 @@ checkRemoteDatabaseConnection() {
   if ! ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "mkdir $SBTEMPDIR && printf '[client]\nhost=%s\nuser=%s\npassword=%s\n' $REMOTE_DBHOST $REMOTE_DBUSER '$REMOTE_DBPASS' > $SBDBCNF && chmod 0600 $SBDBCNF && mysql --defaults-file=$SBDBCNF $REMOTE_DBNAME -e 'exit' &>/dev/null"; then
     printf "\033[1;31mError:\033[0m Remote database connection failed. Double check your remote DB credentials or set them explicitly\n" >&2
     NODB="TRUE"
+  else  
+    REMOTE_SBCNF="TRUE"
   fi
 }
 
@@ -342,6 +360,12 @@ removeEnvPathSBO() {
   mysql -u "$LOCAL_DBNAME" "$LOCAL_DBNAME" -se "UPDATE ${TABLE_PREFIX}options SET option_value = '' WHERE option_name = 'servebolt_env_file_path'" 2>/dev/null
 }
 
+updateSL8Permissions() {
+	[[ ! -d "$HOME/site" ]] || [[ ! -d "$HOME/site/public" ]] && mkdir -p "$HOME/site/public"
+	chmod 0710 "$HOME/site/public"
+}
+
+
 # ====== MAIN ======= #
 
 mkdir -p "$HOME/tmp"
@@ -362,9 +386,9 @@ sleep .1
 [[ ! "$NODB" ]] && transferDatabase
 wait
 
+[[ "$NGL" ]] && updateSL8Permissions
+
 updateLocalConfig
 [[ ! "$NODB" ]] && removeEnvPathSBO
 printf "\033[1;32mDone!\033[0m"
 tput bel
-exit 0
-
