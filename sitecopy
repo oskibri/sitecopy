@@ -1,8 +1,8 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 1th of Mar, 2024
+# Date: 5th of Mar, 2024
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.6
+# Version 1.2.7
 
 pwd="$PWD"
 interupt() {
@@ -26,7 +26,7 @@ LOCAL_DBHOST="localhost"
 REMOTE_DBHOST="localhost"
 DESTINATION_DIRECTORY="$HOME"
 SOURCE_DIRECTORY='$HOME'
-EXCLUDE_LIST=(/.{vim*,wp-cli,bash*,less*,local,mysql*} /environment.{json,ini} "/.ssh/id_rsa*" "/logs" "/tmp" "/php-session" "/php-upload")
+EXCLUDE_LIST=(/.{vim*,wp-cli,bash*,less*,local,mysql*} /environment.{json,ini} "/.ssh" "/logs" "/tmp" "/php-session" "/php-upload")
 
 # Check if server is SL7 or SL8
 if [[ $(awk -F/ '{print $2}' <<< "$PWD") == 'cust' ]]; then
@@ -165,7 +165,7 @@ elif [[ ! "$LOCAL_DBNAME" ]]; then
 fi
 
 # Check if normal SSH keys are present
-if [[ ! -f "$HOME/.ssh/id_ed25519" || ! -f "$HOME/.ssh/id_ed25519.pub" ]]; then
+if [[ ! -f "$HOME/.ssh/id_ed25519" || ! -f "$HOME/.ssh/id_rsa" || ! -f ]]; then
   mkdir "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"
   eval "$(ssh-agent -s)" &>/dev/null

@@ -1,3 +1,6 @@
+### Tue 5 Mar Oskar VH <oskar@servebolt.com> - `v1.2.7`
+  - Added the whole .ssh directory to be excluded
+
 ### Fri 1 Mar Oskar VH <oskar@servebolt.com> - `v1.2.6`
   - Hotfix for help page always showing
 
