@@ -3,6 +3,7 @@
 
 ### Fri 1 Mar Oskar VH <oskar@servebolt.com> - `v1.2.6`
   - Hotfix for help page always showing
+  - Switch from using rsa SSH keys, to ed_25519 as default 
 
 ### Fri 1 Mar Oskar VH <oskar@servebolt.com> - `v1.2.5`
   - Updated trap function to check if remove .cnf file has been added before removing
