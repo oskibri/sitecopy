@@ -166,7 +166,7 @@ fi
 
 # Check if normal SSH keys are present
 if [[ ! -f "$HOME/.ssh/id_ed25519" || ! -f "$HOME/.ssh/id_rsa" ]]; then
-  [[ ! -d "$HOME/.ssh ]] && mkdir "$HOME/.ssh"
+  [[ ! -d "$HOME/.ssh" ]] && mkdir "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"
   eval "$(ssh-agent -s)" &>/dev/null
   ssh-keygen -qt ed25519 -N "" -f "$SSH_PRIVKEY" <<< 'y' &>/dev/null || exit 9
