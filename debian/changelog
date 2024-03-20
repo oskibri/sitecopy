@@ -1,3 +1,45 @@
+sitecopy (1.2.7) unstable; urgency=medium
+
+  * Added the whole .ssh directory to be excluded
+
+ -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Wed, 20 Mar 2024 13:57:55 +0100
+
+sitecopy (1.2.6) unstable; urgency=medium
+
+  * Hotfix for help page always showing
+  * Switch from using rsa SSH keys, to ed_25519 as default
+
+ -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Wed, 20 Mar 2024 13:57:20 +0100
+
+sitecopy (1.2.5) unstable; urgency=medium
+
+  * Updated trap function to check if remove .cnf file has been added
+    before removing
+  * If ~/site and/or ~/site/public doesnt exist, create them
+  * If destination env is SL8, update public dir perms to 0710
+  * Updated help page to reflect changes in flags (long overdue)
+
+ -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Wed, 20 Mar 2024 13:56:49 +0100
+
+sitecopy (1.2.4) unstable; urgency=medium
+
+  * Mysql credentials are now stored in a .cnf file for better security
+  * Removed default migration of $HOME dir if not $DOCUMENT_ROOT is
+    specified or found
+  * Removed the --only-root and -o flag
+  * For finer control on source and destination directory, --src and
+    --dest have to be used
+  * If CMS config file is automatically found and --src isnt specified,
+    sitecopy will exit instead of continuing
+
+ -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Wed, 20 Mar 2024 13:55:33 +0100
+
+sitecopy (1.2.3) unstable; urgency=medium
+
+  * Made $SSHUSER check contain periods in the if statement
+
+ -- Andre Tomt <andret@servebolt.com>  Wed, 20 Mar 2024 13:53:39 +0100
+
 sitecopy (1.2.2) unstable; urgency=medium
 
   * Initial packaging.
