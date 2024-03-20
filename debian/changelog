@@ -1,6 +1,7 @@
 sitecopy (1.2.7) unstable; urgency=medium
 
   * Added the whole .ssh directory to be excluded
+  * Add missing d/source/format file
 
  -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Wed, 20 Mar 2024 13:57:55 +0100
 
