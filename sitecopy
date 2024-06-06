@@ -1,8 +1,8 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 5th of Mar, 2024
+# Date: 6th of Jun, 2024
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.7
+# Version 1.2.8
 
 pwd="$PWD"
 interupt() {
@@ -265,7 +265,7 @@ parseConfig() {
 }
 
 checkRemoteDatabaseConnection() {
-  if ! ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "mkdir $SBTEMPDIR && printf '[client]\nhost=%s\nuser=%s\npassword=%s\n' $REMOTE_DBHOST $REMOTE_DBUSER '$REMOTE_DBPASS' > $SBDBCNF && chmod 0600 $SBDBCNF && mysql --defaults-file=$SBDBCNF $REMOTE_DBNAME -e 'exit' &>/dev/null"; then
+  if ! ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "mkdir -p $SBTEMPDIR && printf '[client]\nhost=%s\nuser=%s\npassword=%s\n' $REMOTE_DBHOST $REMOTE_DBUSER '$REMOTE_DBPASS' > $SBDBCNF && chmod 0600 $SBDBCNF && mysql --defaults-file=$SBDBCNF $REMOTE_DBNAME -e 'exit' &>/dev/null"; then
     printf "\033[1;31mError:\033[0m Remote database connection failed. Double check your remote DB credentials or set them explicitly\n" >&2
     NODB="TRUE"
   else  
@@ -285,7 +285,7 @@ setLocalDBPassword() {
 checkLocalDatabaseConnection() {
   [[ ! -d "$HOME/tmp" ]] && mkdir "$HOME/tmp"
 
-  printf "[client]\nhost=localhost\nuser=%s\npassword=%s\n" "$LOCAL_DBNAME" "$LOCAL_DBPASS" > "$HOME/tmp/local_db.cnf"
+  printf "[client]\nhost=localhost\nuser=%s\npassword='%s'\n" "$LOCAL_DBNAME" "$LOCAL_DBPASS" > "$HOME/tmp/local_db.cnf"
   chmod 0600 "$HOME/tmp/local_db.cnf"
 
   if ! mysql --defaults-file="$HOME/tmp/local_db.cnf" "$LOCAL_DBNAME" -e 'exit' &>/dev/null; then

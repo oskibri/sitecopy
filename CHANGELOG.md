@@ -1,3 +1,7 @@
+### Thu 6 Jun Oskar VH <oskar@servebolt.com> - `v1.2.8`
+  - Added -p to mkdir $SBTEMP to prevent error when dir already exists
+  - Added single quotes around local DB password in cnf file
+
 ### Tue 5 Mar Oskar VH <oskar@servebolt.com> - `v1.2.7`
   - Added the whole .ssh directory to be excluded
 
