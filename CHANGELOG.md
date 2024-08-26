@@ -1,3 +1,7 @@
+### Mon 26 Aug Oskar VH <oskar@servebolt.com> - `v1.2.9`
+  - Removed hardcoded 'localhost' for $REMOTE_DBHOST. This ensures that a custom database host are applied to remote db.cnf
+  - Added exit statement to the end of script to properly run trap sequence (exit codes have always been redundant because of trap and should be removed)
+
 ### Thu 6 Jun Oskar VH <oskar@servebolt.com> - `v1.2.8`
   - Added -p to mkdir $SBTEMP to prevent error when dir already exists
   - Added single quotes around local DB password in cnf file

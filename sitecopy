@@ -1,8 +1,8 @@
 #!/bin/bash
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
-# Date: 6th of Jun, 2024
+# Date: 26th of Aug, 2024
 # Author: Oskar Voldbakken Hesle
-# Version 1.2.8
+# Version 1.2.9
 
 pwd="$PWD"
 interupt() {
@@ -11,7 +11,7 @@ interupt() {
   ssh-agent -k &>/dev/null
   rm -rf "$HOME"/tmp/{custom_,}exclude_list.txt 2>/dev/null
   rm -rf "$HOME/tmp/local_db.cnf" 2>/dev/null
-  exit 9
+  exit
 }
 trap 'interupt' EXIT SIGINT
 cd "$HOME" || exit 10
@@ -23,7 +23,6 @@ SSH_PUBKEY="$HOME/.ssh/id_ed25519.pub"
 
 SSHPORT=22
 LOCAL_DBHOST="localhost"
-REMOTE_DBHOST="localhost"
 DESTINATION_DIRECTORY="$HOME"
 SOURCE_DIRECTORY='$HOME'
 EXCLUDE_LIST=(/.{vim*,wp-cli,bash*,less*,local,mysql*} /environment.{json,ini} "/.ssh" "/logs" "/tmp" "/php-session" "/php-upload")
@@ -393,3 +392,4 @@ updateLocalConfig
 [[ ! "$NODB" ]] && removeEnvPathSBO
 printf "\033[1;32mDone!\033[0m"
 tput bel
+exit
