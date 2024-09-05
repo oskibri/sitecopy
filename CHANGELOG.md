@@ -1,3 +1,7 @@
+### Thu 05 Sep Oskar VH <oskar@servebolt.com> - `v1.3.0`
+  - Added -v|--version flag to print version number
+  - Changed date to ISO 8601 format
+
 ### Mon 26 Aug Oskar VH <oskar@servebolt.com> - `v1.2.9`
   - Removed hardcoded 'localhost' for $REMOTE_DBHOST. This ensures that a custom database host are applied to remote db.cnf
   - Added exit statement to the end of script to properly run trap sequence (exit codes have always been redundant because of trap and should be removed)
