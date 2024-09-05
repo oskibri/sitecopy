@@ -2,7 +2,7 @@
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
 # Author: Oskar Voldbakken Hesle
 
-VERSION="Version: v1.3.0 - 2024-09-04"
+VERSION="Version: v1.3.0 - 2024-09-05"
 
 pwd="$PWD"
 interupt() {
