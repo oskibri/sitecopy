@@ -1,3 +1,18 @@
+sitecopy (1.3.0) unstable; urgency=medium
+
+  [ Oskar Voldbakken Hesle ]
+  * Added -p to mkdir $SBTEMP to prevent error when dir already exist
+  * Added single quotes around local DB password in cnf file
+  * Removed hardcoded 'localhost' for $REMOTE_DBHOST. This ensures that a
+    custom database host are applied to remote db.cnf
+  * Added exit statement to the end of script to properly run trap
+    sequence (exit codes have always been redundant because of trap and
+    should be removed)
+  * Added -v|--version flag to print version number
+  * Changed date to ISO 8601 format
+
+ -- Andre Tomt <andret@servebolt.com>  Wed, 11 Sep 2024 12:42:58 +0200
+
 sitecopy (1.2.7) unstable; urgency=medium
 
   * Added the whole .ssh directory to be excluded
