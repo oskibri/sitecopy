@@ -1,3 +1,11 @@
+### Thu 05 Sep Oskar VH <oskar@servebolt.com> - `v1.3.1`
+  - Sitecopy now properly checks the remote server if it is SL7, SL8 or something else and updates rsync accordinly
+  - Updated rsync function to either copy from manual source by user or default which is public, site/pulic or home depending on SL7, SL8 or other os respectively
+  - Removed unnecessary comments
+  - Fixed last printf to contain newline at end
+  - Removed (WIP) from usage section regarding getting local db password. Currently not a feature
+  - Updated usage section for -s|--src to give more explicit information of its functionality
+
 ### Thu 05 Sep Oskar VH <oskar@servebolt.com> - `v1.3.0`
   - Added -v|--version flag to print version number
   - Changed date to ISO 8601 format
