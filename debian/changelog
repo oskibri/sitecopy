@@ -1,11 +1,16 @@
-sitecopy (1.3.0) unstable; urgency=medium
+sitecopy (1.3.1) unstable; urgency=medium
 
-  * Sitecopy now properly checks the remote server if it is SL7, SL8 or something else and updates rsync accordinly
-  * Updated rsync function to either copy from manual source by user or default which is public, site/pulic or home depending on SL7, SL8 or other os respectively
+  * Sitecopy now properly checks the remote server if it is SL7, SL8 or
+    something else and updates rsync accordinly
+  * Updated rsync function to either copy from manual source by user or
+    default which is public, site/pulic or home depending on SL7, SL8 or
+    other os respectively
   * Removed unnecessary comments
   * Fixed last printf to contain newline at end
-  * Removed (WIP) from usage section regarding getting local db password.Currently not a feature
-  * Updated usage section for -s|--src to give more explicit information of its functionality
+  * Removed (WIP) from usage section regarding getting local db password.
+    Currently not a feature
+  * Updated usage section for -s|--src to give more explicit information
+    of its functionality
 
  -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Thu, 12 Sep 2024 12:03:55 +0100
 
@@ -18,8 +23,11 @@ sitecopy (1.3.0) unstable; urgency=medium
 
 sitecopy (1.2.9) unstable; urgency=medium
 
-  * Removed hardcoded 'localhost' for $REMOTE_DBHOST. This ensures that a custom database host are applied to remote db.cnf
-  * Added exit statement to the end of script to properly run trap sequence (exit codes have always been redundant because of trap and should be removed)
+  * Removed hardcoded 'localhost' for $REMOTE_DBHOST. This ensures that a
+    custom database host are applied to remote db.cnf
+  * Added exit statement to the end of script to properly run trap
+    sequence (exit codes have always been redundant because of trap and
+    should be removed)
 
  -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Thu, 05 Sep 2024 18:23:26 +0100
 
