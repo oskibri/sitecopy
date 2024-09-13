@@ -2,7 +2,7 @@
 # Info: Sitecopy 2.0 | Copy site from any environment to Servebolt
 # Author: Oskar Voldbakken Hesle
 
-VERSION="Version: v1.3.1 - 2024-09-12"
+VERSION="Version: v1.3.2 - 2024-09-13"
 
 pwd="$PWD"
 interupt() {
@@ -66,14 +66,15 @@ $(printf "\033[1;32mSSH:\033[0m")
   -P, --port=<PORT_NUM>       Set the remote SSH port number. Default is '22'
 
 $(printf "\033[1;32mRemote database:\033[0m")
-      --remote-name=<NAME>    Set the remote database name. If not set, sitecopy will try to find it in a remote config file
-      --remote-user=<USER>    Set the remote database user. If not set, sitecopy will try to find it in a remote config file
-      --remote-host=<HOST>    Set the remote database host. If not set, sitecopy will try to find it in a remote config file
-      --remote-pass=<PASS>    Set the remote database pass. If not set, sitecopy will try to find it in a remote config file
+  -N, --remote-name=<NAME>    Set the remote database name. If not set, sitecopy will try to find it in a remote config file
+  -U, --remote-user=<USER>    Set the remote database user. If not set, sitecopy will try to find it in a remote config file
+  -H, --remote-host=<HOST>    Set the remote database host. If not set, sitecopy will try to find it in a remote config file
+  -X, --remote-pass=<PASS>    Set the remote database pass. If not set, sitecopy will try to find it in a remote config file
 
 $(printf "\033[1;32mLocal database:\033[0m")
   -l, --local-name=<NAME>     Set the local database name
   -p, --local-pass=<PASS>     Set the local database password
+  -o, --only-db		      Only transfer the remote database and skip transferring of files
 
 EOF
 }
@@ -83,8 +84,8 @@ version() {
 }
 
 OPTS=$(getopt -n "$0" \
-  -o vs:d:e:u:h:P:l:p:t:k \
-  -l help,version,src:,dest:,exclude:,user:,host:,port:,remote-name:,remote-user:,remote-host:,remote-pass:,local-name:,local-pass:,type:,key -- "$@")
+  -o vs:d:e:u:h:P:N:U:H:X:l:p:t:ko \
+  -l help,version,src:,dest:,exclude:,user:,host:,port:,remote-name:,remote-user:,remote-host:,remote-pass:,local-name:,local-pass:,type:,key,only-db -- "$@")
 eval set -- "$OPTS"
 
 while true; do
@@ -95,6 +96,9 @@ while true; do
     -v|--version)
       version
       exit 0 ;;
+    -o|--only-db)
+      ONLYDB="TRUE"
+      shift ;; 
     -s|--src)
       MANUAL_SOURCE="TRUE"
       SOURCE_DIRECTORY="$2"
@@ -115,16 +119,16 @@ while true; do
     -P|--port)
       SSHPORT="$2"
       shift 2 ;;
-    --remote-name)
+    -N|--remote-name)
       REMOTE_DBNAME="$2"
       shift 2 ;;
-    --remote-user)
+    -U|--remote-user)
       REMOTE_DBUSER="$2"
       shift 2 ;;
-    --remote-host)
+    -H|--remote-host)
       REMOTE_DBHOST="$2"
       shift 2 ;;
-    --remote-pass)
+    -X|--remote-pass)
       REMOTE_DBPASS="$2"
       shift 2 ;;
     -l|--local-name)
@@ -197,8 +201,15 @@ fi
 # ====== MAIN FUNCTIONS ======= #
 
 checkRemoteSBVersion() {
-	SOURCE_DIRECTORY=$(ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "bash -c \
-	'if [[ $(awk -F/ '{print $2}' <<< "$PWD") == 'cust' ]]; then echo -n 'site/public'; elif [[ $(awk -F/ '{print $2}' <<< "$PWD") == 'kunder' ]]; then echo -n 'public'; else echo -n ''; fi'")
+        local os_ver=$(ssh -qi "$SSH_PRIVKEY" -p "$SSHPORT" "$SSHUSER@$SSHHOST" "cat /proc/version | grep -E '(red hat|ubuntu)' -io | head -1")
+
+        if [[ "$os_ver" =~ "Red Hat" ]]; then
+                SOURCE_DIRECTORY="public"
+        elif [[ "$os_ver" =~ Ubuntu ]]; then
+                SOURCE_DIRECTORY="site/public"
+        else
+                SOURCE_DIRECTORY=""
+        fi
 }
 
 getConfigFile() {
@@ -374,17 +385,17 @@ mkdir -p "$HOME/tmp"
 tr ' ' '\n' <<< "${EXCLUDE_LIST[@]}" > "$HOME/tmp/exclude_list.txt"
 tr ' ' '\n' <<< "${CUSTOM_EXCLUDE_LIST[@]}" > "$HOME/tmp/custom_exclude_list.txt"
 
-checkRemoteSBVersion
-getConfigFile
+[[ ! "$MANUAL_SOURCE" ]] && checkRemoteSBVersion
+[[ ! "$ONLYDB" ]] && getConfigFile
 [[ ! "$NODB" ]] && parseConfig
 [[ ! "$NODB" ]] && checkRemoteDatabaseConnection
 [[ ! "$NODB" ]] && setLocalDBPassword
 [[ ! "$NODB" ]] && checkLocalDatabaseConnection
-checkDocumentRoot
+[[ ! "$ONLYDB" ]] && checkDocumentRoot
 echo
 
 printf "\033[1;32mDoing Transfer...\033[0m\n"
-transferFiles
+[[ ! "$ONLYDB" ]] && transferFiles
 sleep .1
 [[ ! "$NODB" ]] && transferDatabase
 wait

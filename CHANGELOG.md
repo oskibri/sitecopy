@@ -1,3 +1,9 @@
+### Thu 05 Sep Oskar VH <oskar@servebolt.com> - `v1.3.2`
+  - Fixed broken check for remote os by cat out /proc/version instead of looking at filesystem
+  - Added -o|--only-db flag to be able to only transfer database and skip files
+  - Added short options for remote database credentials (-N,-H,-U,-X)
+  - Updated usage to reflec changed to options/flag
+
 ### Thu 05 Sep Oskar VH <oskar@servebolt.com> - `v1.3.1`
   - Sitecopy now properly checks the remote server if it is SL7, SL8 or something else and updates rsync accordinly
   - Updated rsync function to either copy from manual source by user or default which is public, site/pulic or home depending on SL7, SL8 or other os respectively

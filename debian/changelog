@@ -1,5 +1,16 @@
 sitecopy (1.3.1) unstable; urgency=medium
 
+  * Fixed broken check for remote os by cat out /proc/version 
+    instead of looking at filesystem
+  * Added -o|--only-db flag to be able to only transfer 
+    database and skip files
+  * Added short options for remote database credentials (-N,-H,-U,-X)
+  * Updated usage to reflec changed to options/flag
+
+ -- Oskar Voldbakken Hesle <oskar@servebolt.com>  Fri, 13 Sep 2024 04:27:09 +0100
+
+sitecopy (1.3.1) unstable; urgency=medium
+
   * Sitecopy now properly checks the remote server if it is SL7, SL8 or
     something else and updates rsync accordinly
   * Updated rsync function to either copy from manual source by user or
