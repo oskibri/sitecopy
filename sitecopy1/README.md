@@ -1,2 +1,1 @@
-## Old Sitecopy:
-see https://gitlab.r99.no/tools/sitecopy/wikis/home
+
