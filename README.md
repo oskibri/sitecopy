@@ -156,3 +156,71 @@ If a local database name is provided:
 
 ```bash
 mysqldump | mysql
+```
+
+If the local DB password is not provided:
+
+- The script will prompt for it.
+
+If no local database is specified:
+
+- Database transfer is skipped.
+
+---
+
+## Document Root Detection
+
+### WordPress
+
+Detected if the config directory contains:
+
+- `wp-admin`
+- `wp-includes`
+
+### Magento (`env.php`)
+
+Detected by removing `/app/etc` from the config path.
+
+If document root cannot be detected:
+
+- The entire remote home directory is copied.
+
+---
+
+## Example Workflows
+
+### Simple migration
+
+```bash
+bash sitecopy.sh user@example.com mylocaldb
+
+Copy only document Root:
+
+bash sitecopy.sh -o user@example.com mylocaldb
+
+Custom source and excludes:
+
+bash sitecopy.sh \
+  -s /var/www/site \
+  -e "cache,tmp,*.log" \
+  user@example.com mylocaldb
+```
+
+## Exit Behavior
+
+On exit (normal or interrupted), the script:
+
+- Restores original working directory
+- Stops `ssh-agent`
+- Restores terminal state
+- Removes temporary exclude list
+
+---
+
+## Notes / Caveats
+
+- Assumes MySQL-compatible databases.
+- Designed primarily for Servebolt environments.
+- Only basic CMS auto-detection is implemented.
+- API-based DB password updates are not implemented yet.
+
